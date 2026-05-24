@@ -51,7 +51,7 @@ export function FormVacuna({ vacaNumero, onDone }: Props) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="gasto" className="text-base">Gasto ($) *</Label>
-          <Input id="gasto" type="number" min="0" step="0.01" className="h-12 text-base" {...form.register("gasto")} />
+          <Input id="gasto" type="number" min="0" step="0.01" className="h-12 text-base" {...form.register("gasto", { valueAsNumber: true })} />
           {err("gasto")}
         </div>
         <div className="space-y-2 sm:col-span-2">
