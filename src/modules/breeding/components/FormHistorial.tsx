@@ -1,12 +1,12 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { historialSchema, type HistorialInput } from "@/lib/schemas";
+import { historialSchema } from "../schemas";
+import type { HistorialInput, Historial } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateHistorial, useUpdateHistorial } from "@/hooks/useHistorial";
-import type { Historial } from "@/lib/historial-repository";
+import { useCreateHistorial, useUpdateHistorial } from "../hooks/useHistorial";
 import { toast } from "sonner";
 
 type Props = {

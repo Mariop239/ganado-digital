@@ -13,7 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useDeleteVacuna, useVacunasPorVaca } from "@/hooks/useVacunas";
+import { useDeleteVacuna, useVacunasPorVaca } from "../hooks/useVacunas";
 import { FormVacuna } from "./FormVacuna";
 import { toast } from "sonner";
 

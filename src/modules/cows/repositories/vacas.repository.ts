@@ -1,19 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { VacaInput, EgresoInput } from "./schemas";
-
-export type Vaca = {
-  numero: string;
-  dueno: string;
-  nombre: string;
-  color: string;
-  raza: string;
-  padre: string;
-  madre: string;
-  fecha_egreso: string | null;
-  motivo_egreso: string | null;
-  created_at: string;
-  updated_at: string;
-};
+import type { Vaca, VacaInput, EgresoInput } from "../types/domain";
 
 export async function listVacas(soloActivas = true): Promise<Vaca[]> {
   let q = supabase.from("vacas").select("*").order("numero", { ascending: true });

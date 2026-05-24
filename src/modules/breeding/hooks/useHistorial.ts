@@ -4,8 +4,8 @@ import {
   deleteHistorial,
   listHistorial,
   updateHistorial,
-} from "@/lib/historial-repository";
-import type { HistorialInput } from "@/lib/schemas";
+} from "../repositories/historial.repository";
+import type { HistorialInput } from "../types/domain";
 
 export function useHistorial(vacaNumero: string) {
   return useQuery({

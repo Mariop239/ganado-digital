@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { useVacunasGlobal } from "@/hooks/useVacunas";
+import { useVacunasGlobal } from "@/modules/vaccinations";
 
 export const Route = createFileRoute("/_authenticated/vacunas")({
   component: VacunasGlobalPage,

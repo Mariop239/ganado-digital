@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PerfilVaca } from "@/components/vacas/PerfilVaca";
-import { useVaca } from "@/hooks/useVacas";
+import { PerfilVaca, useVaca } from "@/modules/cows";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/vacas/$numero")({

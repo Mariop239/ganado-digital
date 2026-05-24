@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createVacuna, deleteVacuna, listVacunasGlobal, listVacunasPorVaca,
-} from "@/lib/vacunas-repository";
-import type { VacunaInput } from "@/lib/schemas";
+} from "../repositories/vacunas.repository";
+import type { VacunaInput } from "../types/domain";
 
 export function useVacunasGlobal() {
   return useQuery({ queryKey: ["vacunas", "global"], queryFn: listVacunasGlobal });

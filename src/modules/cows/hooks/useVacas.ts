@@ -7,8 +7,8 @@ import {
   marcarEgreso,
   reactivarVaca,
   updateVaca,
-} from "@/lib/vacas-repository";
-import type { EgresoInput, VacaInput } from "@/lib/schemas";
+} from "../repositories/vacas.repository";
+import type { EgresoInput, VacaInput } from "../types/domain";
 
 export function useVacas(soloActivas = true) {
   return useQuery({

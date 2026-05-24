@@ -1,18 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { HistorialInput } from "./schemas";
-
-export type Historial = {
-  id: string;
-  vaca_numero: string;
-  fecha_monta: string;
-  toro: string;
-  fecha_parto: string | null;
-  sexo_cria: "Macho" | "Hembra" | null;
-  fecha_destete: string | null;
-  observaciones: string | null;
-  created_at: string;
-  updated_at: string;
-};
+import type { Historial, HistorialInput } from "../types/domain";
 
 function normalize(input: HistorialInput) {
   return {

@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { FormVaca } from "./FormVaca";
 import { EgresoDialog } from "./EgresoDialog";
-import { useReactivarVaca } from "@/hooks/useVacas";
-import { HistorialTabla } from "./HistorialTabla";
-import { VacunasTablaVaca } from "@/components/vacunas/VacunasTablaVaca";
+import { useReactivarVaca } from "../hooks/useVacas";
+import { HistorialTabla } from "@/modules/breeding";
+import { VacunasTablaVaca } from "@/modules/vaccinations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Vaca } from "@/lib/vacas-repository";
+import type { Vaca } from "../types/domain";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");

@@ -13,8 +13,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useDeleteHistorial, useHistorial } from "@/hooks/useHistorial";
-import type { Historial } from "@/lib/historial-repository";
+import { useDeleteHistorial, useHistorial } from "../hooks/useHistorial";
+import type { Historial } from "../types/domain";
 import { FormHistorial } from "./FormHistorial";
 import { toast } from "sonner";
 

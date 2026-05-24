@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { vacaSchema, type VacaInput } from "@/lib/schemas";
+import { vacaSchema } from "../schemas";
+import type { VacaInput, Vaca } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCreateVaca, useUpdateVaca } from "@/hooks/useVacas";
-import type { Vaca } from "@/lib/vacas-repository";
+import { useCreateVaca, useUpdateVaca } from "../hooks/useVacas";
 import { toast } from "sonner";
 
 type Props = {

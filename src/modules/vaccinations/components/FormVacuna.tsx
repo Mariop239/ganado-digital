@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { vacunaSchema, type VacunaInput } from "@/lib/schemas";
+import { vacunaSchema } from "../schemas";
+import type { VacunaInput } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateVacuna } from "@/hooks/useVacunas";
+import { useCreateVacuna } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
 type Props = {

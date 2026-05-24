@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useVacas } from "@/hooks/useVacas";
+import { useVacas } from "../hooks/useVacas";
 import { FormVaca } from "./FormVaca";
 
 export function ListaVacas() {
