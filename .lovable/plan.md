@@ -1,107 +1,57 @@
-# Plan: Módulo "Vacas Paridas" con Supabase
+## Estructura confirmada
 
-Construyo el módulo completo conectado a Supabase desde el inicio. Sin datos simulados. Rancho compartido: cualquier usuario autenticado ve y edita las mismas vacas.
+**FK:** `vaca_numero TEXT REFERENCES vacas(numero) ON DELETE CASCADE ON UPDATE CASCADE` (coherente con `historial`, ya que `vacas.numero` es TEXT, no UUID).
 
-## 1. Base de datos (migración)
+**Registro contextual:** en el modal del perfil, `vaca_numero` se inyecta en el cliente desde el `params.numero` de la ruta (no se envía desde un input). El backend lo recibe como parte del insert; RLS solo exige `authenticated`. No hay campo oculto en el form ni manipulable por el usuario.
 
-Dos tablas con RLS habilitada. Acceso completo (lectura + escritura) para cualquier usuario autenticado; bloqueado para anónimos.
+## Plan de construcción
 
-**Tabla `vacas`**
-- `numero` (text, PK) — arete único
-- `dueno`, `nombre`, `color`, `raza`, `padre`, `madre` (text)
-- `fecha_egreso` (date, opcional), `motivo_egreso` (text, opcional)
-- `created_at`, `updated_at` (timestamptz)
-
-**Tabla `historial`**
-- `id` (uuid, PK)
-- `vaca_numero` (text, FK → vacas.numero, ON DELETE CASCADE)
-- `fecha_monta` (date, NOT NULL)
-- `toro` (text)
-- `fecha_parto` (date, opcional)
-- `sexo_cria` (text, opcional, check: 'Macho' | 'Hembra')
-- `fecha_destete` (date, opcional)
-- `observaciones` (text, opcional)
-- `created_at`, `updated_at`
-- Trigger de validación: si `fecha_parto` existe debe ser ≥ `fecha_monta`; si `fecha_destete` existe debe ser ≥ `fecha_parto`.
-
-**RLS (rancho compartido):**
-- `SELECT/INSERT/UPDATE/DELETE` permitido si `auth.uid() IS NOT NULL` en ambas tablas.
-
-Índices: `historial(vaca_numero)`, `vacas(nombre)` para el buscador.
-
-## 2. Autenticación
-
-Email + contraseña (Supabase Auth). Sin tabla `profiles` — el rancho es compartido y no necesitamos datos por usuario.
-
-- `/login` y `/signup` públicos.
-- Pathless layout `_authenticated` protege el resto de rutas con `beforeLoad`.
-- `onAuthStateChange` en `__root.tsx` invalida React Query al cambiar la sesión.
-- Botón "Cerrar sesión" en el header.
-
-**Importante:** habilita en el dashboard de Supabase la opción "Confirm email" en OFF si quieres que los trabajadores entren sin verificar correo, o déjala ON si prefieres confirmación.
-
-## 3. Estructura de archivos
-
-```text
-src/
-  routes/
-    __root.tsx                       → providers + listener auth
-    login.tsx                        → pública
-    signup.tsx                       → pública
-    _authenticated.tsx               → guardia de auth
-    _authenticated/index.tsx         → Dashboard / lista de vacas
-    _authenticated/vacas.$numero.tsx → Perfil de la vaca + historial
-  components/
-    vacas/
-      ListaVacas.tsx, TarjetaVaca.tsx
-      PerfilVaca.tsx, HistorialTabla.tsx
-      FormVaca.tsx, FormHistorial.tsx
-      EgresoDialog.tsx
-    layout/Header.tsx
-  lib/
-    vacas-repository.ts              → CRUD vacas
-    historial-repository.ts          → CRUD historial
-    schemas.ts                       → Zod schemas compartidos
-  hooks/
-    useVacas.ts, useVaca.ts, useHistorial.ts  → React Query
-    useAuth.ts
+### 1. Migración Supabase — `control_vacunas`
+```sql
+CREATE TABLE public.control_vacunas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vaca_numero TEXT NOT NULL REFERENCES public.vacas(numero) ON DELETE CASCADE ON UPDATE CASCADE,
+  fecha DATE NOT NULL,
+  vacuna_aplicada TEXT NOT NULL,
+  enfermedad_a_prevenir TEXT NOT NULL DEFAULT '',
+  gasto NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (gasto >= 0),
+  observaciones TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_cv_vaca ON public.control_vacunas(vaca_numero);
+CREATE INDEX idx_cv_fecha ON public.control_vacunas(fecha DESC);
+ALTER TABLE public.control_vacunas ENABLE ROW LEVEL SECURITY;
+-- 4 policies para authenticated (SELECT/INSERT/UPDATE/DELETE) con USING/CHECK = true
+CREATE TRIGGER trg_cv_updated_at BEFORE UPDATE ON public.control_vacunas
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 ```
 
-Capa repository encapsula todas las llamadas al cliente Supabase (`@/integrations/supabase/client`). Los componentes nunca llaman a Supabase directo — usan los hooks de React Query.
+### 2. App Shell con Sidebar (limpio para tablet)
+- `src/components/layout/AppSidebar.tsx` con shadcn `Sidebar` (`collapsible="icon"`), items:
+  - **Mis Vacas** (`/`, icono Beef)
+  - **Registro Global de Vacunas** (`/vacunas`, icono Syringe)
+- `src/routes/_authenticated.tsx` envuelve con `SidebarProvider`; `Header` mantiene logout y suma `SidebarTrigger` siempre visible.
 
-## 4. Pantallas
+### 3. Capa de datos
+- `src/lib/vacunas-repository.ts`: `listVacunasGlobal()`, `listVacunasPorVaca(numero)`, `createVacuna(input)`, `deleteVacuna(id)`.
+- `src/hooks/useVacunas.ts`: `useVacunasGlobal`, `useVacunasPorVaca`, `useCreateVacuna`, `useDeleteVacuna`.
+- `src/lib/schemas.ts`: `vacunaSchema` (fecha no futura, vacuna requerida, gasto ≥ 0).
 
-1. **`/login`, `/signup`** — formularios sencillos, redirección a `/` al éxito.
-2. **`/` (dashboard)** — tarjetas/tabla de vacas activas (`fecha_egreso IS NULL`), buscador por Número o Nombre, botón "Añadir Nueva Vaca" (dialog con `FormVaca`).
-3. **`/vacas/$numero`** — pantalla detalle.
-   - Datos base + botones "Editar" y "Marcar egreso".
-   - Tabla cronológica del historial + botón "Añadir registro de parto/monta" (dialog con `FormHistorial`), con acciones editar/eliminar por fila.
+### 4. Refactor del Perfil de la Vaca
+- `PerfilVaca.tsx`: la sección inferior pasa a `Tabs` de shadcn con dos paneles:
+  - **Reproducción** → mueve `HistorialTabla` + botón "Añadir Historial" actual.
+  - **Vacunas y Médico** → tabla con fecha, vacuna, enfermedad, gasto, observaciones, acciones; botón **Registrar Vacuna**.
+- Modal `FormVacuna.tsx` (react-hook-form + zod): campos visibles fecha / vacuna_aplicada / enfermedad_a_prevenir / gasto / observaciones. `vaca_numero` se añade en el handler de submit desde el contexto de la ruta. Toasts sonner al guardar.
 
-## 5. Validación
-
-`react-hook-form` + `zod`:
-- `numero` requerido, único (manejo de error 23505 en insert).
-- Egreso: si hay fecha, motivo requerido; fecha no futura.
-- Historial: `fecha_monta` requerida; `fecha_parto` ≥ `fecha_monta` y ≤ `fecha_monta + 320 días`; `fecha_destete` ≥ `fecha_parto`; `sexo_cria` requerido cuando hay `fecha_parto`.
-
-Validación duplicada en el trigger SQL como respaldo.
-
-## 6. UI/UX
-
-- Tema claro tipo campo: verde bosque (primario), beige/crema fondo, acentos madera, blanco para tarjetas. Tokens en `src/styles.css` (oklch).
-- Mobile-first, botones grandes (≥48px), inputs amplios para uso en celular por adulto mayor.
-- Todo en español usando los términos exactos del modelo.
-- `shadcn/ui` + `lucide-react`.
-
-## Detalles técnicos
-
-- React Query con keys `['vacas']`, `['vaca', numero]`, `['historial', vacaNumero]`. Invalidación tras cada mutación.
-- Confirmaciones para eliminar/marcar egreso vía `AlertDialog`.
-- Sin server functions — el cliente browser de Supabase basta porque las RLS protegen las tablas.
+### 5. Pantalla `/vacunas` — Registro Global
+- Ruta `src/routes/_authenticated/vacunas.tsx`.
+- Cards superiores: **Gasto total**, **Total de aplicaciones**, **Vacas distintas vacunadas**.
+- Tabla solo lectura con: Vaca (`numero — nombre`), Fecha, Vacuna, Enfermedad, Gasto (moneda). Orden fecha desc, búsqueda simple.
 
 ## Fuera de alcance
+- Edición de registros (solo crear + eliminar desde perfil).
+- Exportación / reportes avanzados.
+- Recordatorios o agenda de próximas vacunas.
 
-- Roles, edición de usuarios desde la app (se gestionan desde el dashboard de Supabase).
-- Otros módulos del rancho.
-
-¿Apruebo y procedo? Te confirmo que esto va a crear las tablas `vacas` e `historial` y a pedirte configurar/usar autenticación por email.
+Al aprobar, ejecuto en orden: migración → sidebar shell → capa de datos → tabs en perfil + modal → pantalla global.
