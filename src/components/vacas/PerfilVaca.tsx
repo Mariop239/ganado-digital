@@ -13,6 +13,8 @@ import { FormVaca } from "./FormVaca";
 import { EgresoDialog } from "./EgresoDialog";
 import { useReactivarVaca } from "@/hooks/useVacas";
 import { HistorialTabla } from "./HistorialTabla";
+import { VacunasTablaVaca } from "@/components/vacunas/VacunasTablaVaca";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Vaca } from "@/lib/vacas-repository";
 import { toast } from "sonner";
 
@@ -89,7 +91,18 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
         </CardContent>
       </Card>
 
-      <HistorialTabla vacaNumero={vaca.numero} />
+      <Tabs defaultValue="reproduccion" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-flex">
+          <TabsTrigger value="reproduccion" className="min-h-11">Reproducción</TabsTrigger>
+          <TabsTrigger value="vacunas" className="min-h-11">Vacunas y Médico</TabsTrigger>
+        </TabsList>
+        <TabsContent value="reproduccion" className="mt-4">
+          <HistorialTabla vacaNumero={vaca.numero} />
+        </TabsContent>
+        <TabsContent value="vacunas" className="mt-4">
+          <VacunasTablaVaca vacaNumero={vaca.numero} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl">
