@@ -14,7 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      historial: {
+        Row: {
+          created_at: string
+          fecha_destete: string | null
+          fecha_monta: string
+          fecha_parto: string | null
+          id: string
+          observaciones: string | null
+          sexo_cria: string | null
+          toro: string
+          updated_at: string
+          vaca_numero: string
+        }
+        Insert: {
+          created_at?: string
+          fecha_destete?: string | null
+          fecha_monta: string
+          fecha_parto?: string | null
+          id?: string
+          observaciones?: string | null
+          sexo_cria?: string | null
+          toro?: string
+          updated_at?: string
+          vaca_numero: string
+        }
+        Update: {
+          created_at?: string
+          fecha_destete?: string | null
+          fecha_monta?: string
+          fecha_parto?: string | null
+          id?: string
+          observaciones?: string | null
+          sexo_cria?: string | null
+          toro?: string
+          updated_at?: string
+          vaca_numero?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historial_vaca_numero_fkey"
+            columns: ["vaca_numero"]
+            isOneToOne: false
+            referencedRelation: "vacas"
+            referencedColumns: ["numero"]
+          },
+        ]
+      }
+      vacas: {
+        Row: {
+          color: string
+          created_at: string
+          dueno: string
+          fecha_egreso: string | null
+          madre: string
+          motivo_egreso: string | null
+          nombre: string
+          numero: string
+          padre: string
+          raza: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          dueno?: string
+          fecha_egreso?: string | null
+          madre?: string
+          motivo_egreso?: string | null
+          nombre?: string
+          numero: string
+          padre?: string
+          raza?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          dueno?: string
+          fecha_egreso?: string | null
+          madre?: string
+          motivo_egreso?: string | null
+          nombre?: string
+          numero?: string
+          padre?: string
+          raza?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
