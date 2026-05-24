@@ -2,12 +2,12 @@ import { z } from "zod";
 
 export const vacaSchema = z.object({
   numero: z.string().trim().min(1, "Requerido").max(50),
-  dueno: z.string().trim().max(100).default(""),
-  nombre: z.string().trim().max(100).default(""),
-  color: z.string().trim().max(50).default(""),
-  raza: z.string().trim().max(50).default(""),
-  padre: z.string().trim().max(100).default(""),
-  madre: z.string().trim().max(100).default(""),
+  dueno: z.string().trim().max(100),
+  nombre: z.string().trim().max(100),
+  color: z.string().trim().max(50),
+  raza: z.string().trim().max(50),
+  padre: z.string().trim().max(100),
+  madre: z.string().trim().max(100),
 });
 
 export type VacaInput = z.infer<typeof vacaSchema>;
@@ -24,11 +24,11 @@ export type EgresoInput = z.infer<typeof egresoSchema>;
 
 export const historialSchema = z.object({
   fecha_monta: z.string().min(1, "Requerida"),
-  toro: z.string().trim().max(100).default(""),
-  fecha_parto: z.string().optional().or(z.literal("")),
-  sexo_cria: z.enum(["Macho", "Hembra"]).optional().or(z.literal("")),
-  fecha_destete: z.string().optional().or(z.literal("")),
-  observaciones: z.string().trim().max(1000).optional().or(z.literal("")),
+  toro: z.string().trim().max(100),
+  fecha_parto: z.string().max(20),
+  sexo_cria: z.union([z.literal(""), z.literal("Macho"), z.literal("Hembra")]),
+  fecha_destete: z.string().max(20),
+  observaciones: z.string().trim().max(1000),
 }).superRefine((d, ctx) => {
   if (d.fecha_parto) {
     if (d.fecha_parto < d.fecha_monta) {
