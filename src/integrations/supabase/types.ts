@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      control_vacunas: {
+        Row: {
+          created_at: string
+          enfermedad_a_prevenir: string
+          fecha: string
+          gasto: number
+          id: string
+          observaciones: string | null
+          updated_at: string
+          vaca_numero: string
+          vacuna_aplicada: string
+        }
+        Insert: {
+          created_at?: string
+          enfermedad_a_prevenir?: string
+          fecha: string
+          gasto?: number
+          id?: string
+          observaciones?: string | null
+          updated_at?: string
+          vaca_numero: string
+          vacuna_aplicada: string
+        }
+        Update: {
+          created_at?: string
+          enfermedad_a_prevenir?: string
+          fecha?: string
+          gasto?: number
+          id?: string
+          observaciones?: string | null
+          updated_at?: string
+          vaca_numero?: string
+          vacuna_aplicada?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "control_vacunas_vaca_numero_fkey"
+            columns: ["vaca_numero"]
+            isOneToOne: false
+            referencedRelation: "vacas"
+            referencedColumns: ["numero"]
+          },
+        ]
+      }
       historial: {
         Row: {
           created_at: string

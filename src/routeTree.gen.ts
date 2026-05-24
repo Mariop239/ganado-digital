@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedVacunasRouteImport } from './routes/_authenticated/vacunas'
 import { Route as AuthenticatedVacasNumeroRouteImport } from './routes/_authenticated/vacas.$numero'
 
 const SignupRoute = SignupRouteImport.update({
@@ -34,6 +35,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedVacunasRoute = AuthenticatedVacunasRouteImport.update({
+  id: '/vacunas',
+  path: '/vacunas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedVacasNumeroRoute =
   AuthenticatedVacasNumeroRouteImport.update({
     id: '/vacas/$numero',
@@ -45,11 +51,13 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/vacunas': typeof AuthenticatedVacunasRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/vacunas': typeof AuthenticatedVacunasRoute
   '/': typeof AuthenticatedIndexRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
 }
@@ -58,19 +66,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/vacunas': typeof AuthenticatedVacunasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/vacas/$numero'
+  fullPaths: '/' | '/login' | '/signup' | '/vacunas' | '/vacas/$numero'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/signup' | '/' | '/vacas/$numero'
+  to: '/login' | '/signup' | '/vacunas' | '/' | '/vacas/$numero'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/signup'
+    | '/_authenticated/vacunas'
     | '/_authenticated/'
     | '/_authenticated/vacas/$numero'
   fileRoutesById: FileRoutesById
@@ -111,6 +121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/vacunas': {
+      id: '/_authenticated/vacunas'
+      path: '/vacunas'
+      fullPath: '/vacunas'
+      preLoaderRoute: typeof AuthenticatedVacunasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/vacas/$numero': {
       id: '/_authenticated/vacas/$numero'
       path: '/vacas/$numero'
@@ -122,11 +139,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedVacunasRoute: typeof AuthenticatedVacunasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedVacasNumeroRoute: typeof AuthenticatedVacasNumeroRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedVacunasRoute: AuthenticatedVacunasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedVacasNumeroRoute: AuthenticatedVacasNumeroRoute,
 }
@@ -143,13 +162,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
