@@ -14,6 +14,7 @@ import { EgresoDialog } from "./EgresoDialog";
 import { useReactivarVaca } from "../hooks/useVacas";
 import { HistorialTabla } from "@/modules/breeding";
 import { VacunasTablaVaca } from "@/modules/vaccinations";
+import { EventTimeline, EventDialog } from "../events";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Vaca } from "../types/domain";
 import { toast } from "sonner";
@@ -92,15 +93,22 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
       </Card>
 
       <Tabs defaultValue="reproduccion" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:inline-flex">
           <TabsTrigger value="reproduccion" className="min-h-11">Reproducción</TabsTrigger>
           <TabsTrigger value="vacunas" className="min-h-11">Vacunas y Médico</TabsTrigger>
+          <TabsTrigger value="eventos" className="min-h-11">Eventos</TabsTrigger>
         </TabsList>
         <TabsContent value="reproduccion" className="mt-4">
           <HistorialTabla vacaNumero={vaca.numero} />
         </TabsContent>
         <TabsContent value="vacunas" className="mt-4">
           <VacunasTablaVaca vacaNumero={vaca.numero} />
+        </TabsContent>
+        <TabsContent value="eventos" className="mt-4 space-y-4">
+          <div className="flex justify-end">
+            <EventDialog vacaNumero={vaca.numero} />
+          </div>
+          <EventTimeline vacaNumero={vaca.numero} />
         </TabsContent>
       </Tabs>
 
