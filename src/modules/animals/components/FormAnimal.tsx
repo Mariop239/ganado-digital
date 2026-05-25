@@ -137,8 +137,13 @@ export function FormAnimal({
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="numero" className="text-base">Número (arete) *</Label>
+          <Label htmlFor="numero" className="text-base">
+            Número (arete){sexo === "hembra" ? " *" : ""}
+          </Label>
           <Input id="numero" className="h-12 text-base" disabled={editing || locked("numero")} {...form.register("numero")} />
+          <p className="text-xs text-muted-foreground">
+            Solo es obligatorio para hembras; los machos pueden usar identificación temporal automática.
+          </p>
           {err.numero && <p className="text-sm text-destructive">{err.numero.message as string}</p>}
         </div>
         <div className="space-y-2">
