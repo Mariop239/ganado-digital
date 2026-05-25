@@ -1,191 +1,156 @@
 
-# Evolución a Sistema de Eventos del Animal
+# Evolución del dominio: `cows` → `animals` (revisado)
 
-## 1. Análisis arquitectónico
+## 1. Decisiones de diseño (ajustes incorporados)
 
-El modelo actual acopla `cows` con un único evento ("egreso") mediante columnas planas (`fecha_egreso`, `motivo_egreso`). Esto:
+- **`categoria` con TEXT + CHECK**, no enum PostgreSQL. Agregar/quitar valores no requiere `ALTER TYPE` ni migraciones destructivas.
+- **Tres estados ortogonales**, no uno solo:
+  - `categoria` — etapa/tipo: `ternero`, `ternera`, `novilla`, `vaca`, `toro`, `novillo`.
+  - `estado_reproductivo` — solo hembras adultas: `soltera`, `gestante`, `parida`, `seca` (nullable para machos/crías).
+  - `estado_actual` — ciclo de vida: `activa`, `vendida`, `fallecida` (default `activa`).
+- **`fecha_egreso` / `motivo_egreso` se mantienen** como caché de compatibilidad, alimentados por el trigger existente de `animal_events`. `animal_events` queda como fuente de verdad a futuro.
+- **Rutas amigables por `numero`**: `/animales/104`. Internamente el `id` es UUID y se usa para FKs (`mother_id`, `father_id`), pero la URL y la UI muestran `numero`.
+- **Sin automatización temprana**: no `recompute_categoria` automática, no triggers de transición de estado, no validación anti-ciclo recursiva. Los tres estados se editan manualmente desde el form. Validaciones se agregan cuando el flujo real lo justifique.
+- **Genealogía mínima**: madre, padre, hijos directos. Sin árbol multinivel, sin RPC recursiva, sin `GenealogiaTree`.
 
-- Mezcla **estado actual** (¿la vaca está activa?) con **historial** (¿qué pasó y cuándo?).
-- No escala: agregar "venta", "fallecimiento", "traslado" implicaría N columnas opcionales más, o N tablas paralelas.
-- Impide un **timeline unificado** y reportes transversales.
-
-La solución correcta es separar tres responsabilidades:
-
-1. **Catálogo de tipos de evento** (qué eventos existen y qué campos requieren).
-2. **Historial de eventos** (qué le pasó al animal, append-only).
-3. **Estado derivado** en `cows` (campos calculados/cacheados: `estado_actual`, `fecha_estado`).
-
-### Modelo recomendado: tabla única `animal_events` + payload JSONB tipado por discriminador
-
-Es un EAV ligero ("single-table inheritance" con JSONB), validado en frontend con Zod y en backend con un CHECK + trigger. Es el equilibrio correcto para este dominio:
-
-- **Pros:** una sola tabla, timeline trivial (`SELECT * ORDER BY fecha DESC`), agregar un tipo nuevo = solo añadir entrada al registry + schema Zod (cero migraciones). Compatible con índices GIN sobre JSONB para reportes.
-- **Contras / riesgos:** validación de campos vive en aplicación, no en columnas; mitigado con Zod + trigger SQL que valida el JSON contra el discriminador. Queries sobre campos del payload requieren `->>` y posibles índices funcionales.
-- **Alternativa descartada:** una tabla por tipo de evento (`ventas`, `fallecimientos`, ...). Da fuerte tipado SQL pero rompe el timeline, multiplica repos/hooks/schemas, y cada tipo nuevo es una migración + módulo nuevo. No escala con la velocidad pedida.
-
-## 2. Modelo de dominio
-
-```text
-cows (1) ──< animal_events (N)
-                  │
-                  ├─ tipo: 'venta' | 'fallecimiento' | 'traslado' | 'observacion' | 'tratamiento' | ...
-                  ├─ fecha
-                  └─ payload: JSONB (campos específicos del tipo)
-```
-
-Reglas:
-
-- `animal_events` es **append-only** desde la UI (editar/borrar permitido solo por correcciones, con auditoría `updated_at`).
-- Algunos tipos son **terminales** (venta, fallecimiento) → marcan a la vaca como egresada y actualizan `estado_actual`.
-- Otros son **informativos** (observación, tratamiento) → no cambian estado.
-- El "egreso" actual se reinterpreta como un **evento terminal genérico** con subtipos.
-
-## 3. SQL propuesto
+## 2. Modelo SQL
 
 ```sql
--- Enum extensible (alternativa: TEXT + CHECK contra catálogo)
-CREATE TYPE public.animal_event_type AS ENUM (
-  'venta', 'fallecimiento', 'traslado', 'observacion', 'tratamiento', 'otro'
+CREATE TABLE public.animals (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  numero               TEXT NOT NULL UNIQUE,
+  nombre               TEXT NOT NULL DEFAULT '',
+  sexo                 TEXT NOT NULL CHECK (sexo IN ('hembra','macho')),
+  categoria            TEXT NOT NULL CHECK (categoria IN
+                         ('ternero','ternera','novilla','vaca','toro','novillo')),
+  estado_reproductivo  TEXT CHECK (estado_reproductivo IS NULL OR estado_reproductivo IN
+                         ('soltera','gestante','parida','seca')),
+  estado_actual        TEXT NOT NULL DEFAULT 'activa' CHECK (estado_actual IN
+                         ('activa','vendida','fallecida')),
+  fecha_nacimiento     DATE,
+  color                TEXT NOT NULL DEFAULT '',
+  raza                 TEXT NOT NULL DEFAULT '',
+  dueno                TEXT NOT NULL DEFAULT '',
+  mother_id            UUID REFERENCES public.animals(id) ON DELETE SET NULL,
+  father_id            UUID REFERENCES public.animals(id) ON DELETE SET NULL,
+  -- compatibilidad: textos libres heredados de vacas.madre / vacas.padre
+  madre_texto          TEXT NOT NULL DEFAULT '',
+  padre_texto          TEXT NOT NULL DEFAULT '',
+  -- caché alimentado por el trigger ya existente sync_vaca_estado
+  fecha_egreso         DATE,
+  motivo_egreso        TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.animal_events (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vaca_numero   TEXT NOT NULL REFERENCES public.vacas(numero) ON DELETE CASCADE ON UPDATE CASCADE,
-  tipo          public.animal_event_type NOT NULL,
-  fecha         DATE NOT NULL,
-  payload       JSONB NOT NULL DEFAULT '{}'::jsonb,
-  observaciones TEXT,
-  is_terminal   BOOLEAN NOT NULL DEFAULT false, -- cacheado: true = cierra la vida activa
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+CREATE INDEX idx_animals_categoria ON public.animals(categoria);
+CREATE INDEX idx_animals_sexo ON public.animals(sexo);
+CREATE INDEX idx_animals_mother ON public.animals(mother_id);
+CREATE INDEX idx_animals_father ON public.animals(father_id);
+CREATE INDEX idx_animals_activos ON public.animals(numero) WHERE estado_actual = 'activa';
 
-CREATE INDEX idx_animal_events_vaca_fecha ON public.animal_events(vaca_numero, fecha DESC);
-CREATE INDEX idx_animal_events_tipo ON public.animal_events(tipo);
-CREATE INDEX idx_animal_events_payload ON public.animal_events USING GIN (payload);
-
-ALTER TABLE public.animal_events ENABLE ROW LEVEL SECURITY;
--- Policies authenticated CRUD (alineadas con las tablas existentes)
-
--- Trigger updated_at (reusa update_updated_at_column)
-
--- Trigger de validación payload por tipo (whitelist mínima en SQL,
--- validación detallada queda en Zod cliente + server fn)
-CREATE OR REPLACE FUNCTION public.validar_animal_event() RETURNS trigger AS $$
-BEGIN
-  IF NEW.fecha > CURRENT_DATE THEN
-    RAISE EXCEPTION 'La fecha del evento no puede ser futura';
-  END IF;
-  CASE NEW.tipo
-    WHEN 'venta' THEN
-      IF NOT (NEW.payload ? 'comprador' AND NEW.payload ? 'valor') THEN
-        RAISE EXCEPTION 'Venta requiere comprador y valor';
-      END IF;
-      NEW.is_terminal := true;
-    WHEN 'fallecimiento' THEN
-      IF NOT (NEW.payload ? 'causa') THEN
-        RAISE EXCEPTION 'Fallecimiento requiere causa';
-      END IF;
-      NEW.is_terminal := true;
-    WHEN 'traslado' THEN
-      IF NOT (NEW.payload ? 'destino') THEN
-        RAISE EXCEPTION 'Traslado requiere destino';
-      END IF;
-      NEW.is_terminal := false;
-    ELSE
-      NEW.is_terminal := false;
-  END CASE;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path = public;
-
--- Trigger que sincroniza estado en vacas cuando el evento es terminal
-CREATE OR REPLACE FUNCTION public.sync_vaca_estado() RETURNS trigger AS $$
-BEGIN
-  IF NEW.is_terminal THEN
-    UPDATE public.vacas
-       SET fecha_egreso = NEW.fecha,
-           motivo_egreso = NEW.tipo::text || COALESCE(': ' || (NEW.payload->>'causa'), ': ' || (NEW.payload->>'comprador'), '')
-     WHERE numero = NEW.vaca_numero;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path = public;
+-- RLS espejo de las tablas existentes
+ALTER TABLE public.animals ENABLE ROW LEVEL SECURITY;
+-- 4 policies authenticated (select/insert/update/delete) USING true
 ```
 
-`fecha_egreso` / `motivo_egreso` se conservan como **caché del estado actual** alimentado por trigger → cero refactor en `cows` y la UI actual sigue funcionando.
+**Vista de compatibilidad** para que el código actual siga funcionando sin tocar repos/hooks/tablas hijas:
 
-## 4. TypeScript + Zod (registry pattern)
+```sql
+-- Renombrar tabla vacas → _vacas_legacy y exponer vista vacas
+CREATE VIEW public.vacas AS
+  SELECT numero, nombre, color, raza, dueno,
+         madre_texto AS madre, padre_texto AS padre,
+         fecha_egreso, motivo_egreso, created_at, updated_at
+    FROM public.animals
+   WHERE sexo = 'hembra';
+```
+
+`animal_events`, `control_vacunas`, `historial` siguen referenciando `vaca_numero TEXT`. No se tocan: `numero` sigue siendo UNIQUE en `animals`, y la vista preserva la columna. Renombrar a `animal_numero` queda como tarea posterior opcional.
+
+## 3. TypeScript + Zod
 
 ```text
-modules/cows/events/
-  types/
-    domain.ts          -> AnimalEvent<T>, EventType union, EventPayloadMap
-  schemas/
-    payloads/
-      venta.schema.ts
-      fallecimiento.schema.ts
-      traslado.schema.ts
-      observacion.schema.ts
-      tratamiento.schema.ts
-    event.schema.ts    -> z.discriminatedUnion('tipo', [...])
-  registry/
-    index.ts           -> EVENT_REGISTRY: { tipo, label, icon, schema, fields, isTerminal }
-  repositories/
-    events.repository.ts
+modules/animals/
+  types/domain.ts       -> Animal, Sexo, Categoria, EstadoReproductivo, EstadoActual
+  schemas/index.ts      -> animalSchema, animalInputSchema, relacionarPadresSchema
+  constants/
+    categorias.ts       -> CATEGORIAS, CATEGORIA_LABELS, helpers (isHembra, etc.)
+    estados.ts          -> ESTADOS_REPRODUCTIVOS, ESTADOS_ACTUALES + labels
+  repositories/animals.repository.ts
   hooks/
-    useAnimalEvents.ts, useCreateAnimalEvent.ts
+    useAnimals.ts       -> lista con filtros { categoria?, sexo?, estado_actual? }
+    useAnimal.ts        -> detalle por numero
+    useHijos.ts         -> SELECT * FROM animals WHERE mother_id = $ OR father_id = $
   components/
-    EventTimeline.tsx        (timeline unificado por vaca)
-    EventTypeSelector.tsx
-    DynamicEventForm.tsx     (renderiza campos según registry[tipo].fields)
-    EventDialog.tsx          (wrapper modal)
+    ListaAnimales.tsx
+    PerfilAnimal.tsx    -> tabs: Datos, Familia, Reproducción, Vacunas, Eventos
+    FamiliaTab.tsx      -> links a madre, padre, lista de hijos
+    SelectorAnimal.tsx  -> combobox filtrable por sexo (para asignar madre/padre)
+    FormAnimal.tsx
 ```
 
-El **registry** es la pieza clave anti-deuda: un solo objeto declara tipo, label, ícono, schema Zod, definición de campos del form y `isTerminal`. Agregar "vacunación masiva" o "pesaje" es:
+Zod refleja los CHECK constraints (unions literales). `estado_reproductivo` es `.optional().nullable()`.
 
-1. Crear `payloads/pesaje.schema.ts`.
-2. Añadir entrada al registry.
-3. (Si afecta SQL) añadir valor al enum y rama al trigger.
+`modules/cows/` queda como re-export thin → `animals/` durante la transición, y luego se elimina.
 
-Cero cambios en `DynamicEventForm`, `EventTimeline`, hooks ni repository.
+## 4. Frontend — navegación relacional mínima
 
-## 5. Estrategia frontend
+- Ruta nueva `/_authenticated/animales.$numero.tsx`. Las rutas `/vacas/*` se mantienen como alias (la vista `vacas` las sostiene).
+- `PerfilAnimal` agrega tab **"Familia"**:
+  - Madre: link a `/animales/{numero_madre}` o el texto libre `madre_texto` si no hay FK.
+  - Padre: idem.
+  - Hijos: lista con link por hijo (consulta `useHijos`).
+- `FormAnimal` permite asignar `mother_id`/`father_id` vía `SelectorAnimal` (combobox con búsqueda por numero/nombre, filtrado por sexo correcto). Si el usuario no encuentra al ancestro en el sistema, conserva el texto libre.
+- Filtros de lista por `categoria`, `sexo`, `estado_actual`.
 
-- `DynamicEventForm` lee `EVENT_REGISTRY[tipo].fields` y genera inputs (`text`, `number`, `date`, `textarea`, `select`) con `react-hook-form` + `zodResolver(registry[tipo].schema)`.
-- `EventTimeline` consume `useAnimalEvents(vacaNumero)` y renderiza cards ordenadas por `fecha DESC`, con badge según `tipo` y resumen derivado del payload.
-- Mutaciones invalidan `["animal-events", vacaNumero]` **y** `["vaca", vacaNumero]` (porque eventos terminales mutan el caché de estado).
-- `EgresoDialog` actual se reemplaza por `EventDialog` con tipo preseleccionado; legacy se mantiene como atajo visual.
+## 5. Estrategia de migración (fases pequeñas y reversibles)
 
-## 6. Convivencia con el sistema actual
+1. **Schema aditivo**: crear `animals` con CHECKs, índices y RLS. No tocar `vacas`.
+2. **Backfill**: `INSERT INTO animals (id, numero, nombre, sexo, categoria, estado_actual, fecha_egreso, motivo_egreso, madre_texto, padre_texto, color, raza, dueno, created_at, updated_at) SELECT gen_random_uuid(), numero, nombre, 'hembra', 'vaca', CASE WHEN fecha_egreso IS NULL THEN 'activa' ELSE 'vendida' END, fecha_egreso, motivo_egreso, madre, padre, color, raza, dueno, created_at, updated_at FROM vacas`. `mother_id`/`father_id` quedan NULL; los textos se preservan.
+3. **Swap**: renombrar `vacas` → `_vacas_legacy`, crear vista `vacas` sobre `animals`. Repos y hooks actuales siguen funcionando sin cambios.
+4. **Módulo `animals`**: tipos, schemas, repo, hooks, listado, perfil con tab Familia, selector de ancestros. `modules/cows` se convierte en re-export.
+5. **Edición de relaciones**: form permite asignar madre/padre desde el catálogo existente; hijos se muestran como lista navegable.
+6. **Limpieza** (opcional, fase tardía): renombrar `vaca_numero` → `animal_numero` en tablas hijas, deprecar `modules/cows`, deprecar rutas `/vacas`.
 
-- `vacas.fecha_egreso` y `vacas.motivo_egreso` **se conservan** como columnas derivadas mantenidas por trigger. Toda la UI actual (`Badge "Egresada"`, filtro `soloActivas`, `PerfilVaca`) sigue funcionando sin tocarse.
-- `useMarcarEgreso` se reimplementa internamente creando un `animal_event` de tipo `venta`/`fallecimiento`/`otro`; la firma del hook se mantiene → cero ruptura.
-- `useReactivarVaca` borra el último evento terminal (o inserta un evento `reactivacion` no terminal que limpia el caché). Decisión a confirmar en build.
+Cada paso es independiente y reversible. Validación: `count(vacas)` antes vs. `count(animals WHERE sexo='hembra')` después deben coincidir.
 
-## 7. Plan de migración seguro
+## 6. Compatibilidad con lo existente
 
-1. **Migración aditiva** (no destructiva): crear enum, tabla, triggers, policies. No tocar `vacas`.
-2. **Backfill**: insertar en `animal_events` un registro por cada vaca con `fecha_egreso IS NOT NULL`, tipo `otro` o inferido del texto, marcado `is_terminal=true`. Trigger desactivado durante backfill para no sobrescribir las columnas cache.
-3. **Nuevo módulo** `modules/cows/events/` con registry mínimo (los 5 tipos iniciales).
-4. **Refactor interno** de `useMarcarEgreso` para escribir en `animal_events`. UI sin cambios visibles.
-5. **Nueva UI**: timeline en `PerfilVaca` (tab "Eventos") + botón "Registrar evento" que abre `EventDialog`.
-6. **Deprecación** suave del `EgresoDialog` legacy (queda como shortcut, internamente usa el nuevo flujo).
-7. **Validación**: comparar count `vacas.fecha_egreso IS NOT NULL` vs `animal_events WHERE is_terminal`. Deben coincidir.
+| Hoy | Después |
+|---|---|
+| Tabla `vacas` | Vista sobre `animals` |
+| `vacas.numero` PK | `animals.numero` UNIQUE |
+| `animal_events.vaca_numero` FK | Sin cambios (apunta al mismo `numero`) |
+| `control_vacunas`, `historial` | Sin cambios |
+| Hooks `useVaca`, `useVacas`, `useMarcarEgreso`, `useReactivarVaca` | Funcionan vía vista. Más adelante se re-exportan desde `animals` |
+| Trigger `sync_vaca_estado` | Sin cambios (sigue cacheando `fecha_egreso`/`motivo_egreso`) |
+| Rutas `/vacas/$numero` | Se mantienen; se agrega `/animales/$numero` |
 
-## 8. Cómo evitar deuda técnica futura
+## 7. Preparación para fases futuras
 
-- **Single source of truth**: el registry. Si alguien añade un tipo sin pasar por el registry, el form dinámico no lo renderiza → presión natural a hacerlo bien.
-- **Trigger SQL valida mínimos**, Zod valida detalle. Doble capa, sin duplicar la lógica de negocio.
-- **`is_terminal` cacheado** en columna evita recalcular en cada query y permite índices.
-- **Append-only**: history nunca se pierde. Correcciones via nuevo evento "corrección" antes que UPDATE.
-- **Payload JSONB con shape estable por tipo**: nunca renombrar claves; añadir nuevas y mantener compatibilidad hacia atrás.
-- **Tests del registry**: snapshot test que enumera tipos y verifica que cada uno tiene schema + fields.
+- **Eventos / timeline**: ya implementado en `animal_events`, agnóstico al tipo de animal. Cero cambios.
+- **Genealogía multinivel**: la base relacional (`mother_id`, `father_id`) queda lista. Cuando se necesite, se construye una RPC con CTE recursivo encima. **No se implementa ahora.**
+- **Trazabilidad**: append-only ya existe en `animal_events`.
+- **Reportes por categoría / estado**: habilitados por los índices, sin requerir vistas adicionales en esta fase.
 
-## 9. Fuera de alcance de este plan
+## 8. Cómo evitar deuda técnica
 
-- Implementación / migraciones / código (siguiente fase, en build mode).
-- Permisos finos por rol (todas las policies siguen el patrón actual `authenticated`).
-- Reportes y métricas agregadas (habilitados por el modelo, se construyen después).
+- **CHECK + TEXT** en vez de enum: agregar `"vaquillona"` o `"semental"` es un `ALTER TABLE ... DROP CONSTRAINT / ADD CONSTRAINT`, sin migraciones destructivas.
+- **Tres estados separados**: cada uno evoluciona independientemente; nunca un solo campo que mezcle "ternera gestante vendida".
+- **`id` UUID separado de `numero`**: el ID humano puede cambiar sin romper FKs.
+- **Vista `vacas` como contrato explícito**: borrarla es un cambio rastreable, no silencioso.
+- **Sin automatización temprana**: los estados los maneja el usuario hasta que el flujo operativo real demuestre qué transiciones son seguras de automatizar.
+- **`madre_texto`/`padre_texto` preservados**: nunca se pierde información del sistema legacy.
 
-¿Apruebas este diseño para pasar a build mode e implementar en fases (SQL + backfill primero, registry + módulo después, UI al final)?
+## 9. Fuera de alcance
+
+- `GenealogiaTree`, queries recursivas, múltiples generaciones, RPCs avanzadas.
+- `recompute_categoria`, triggers de transición automática de estados.
+- Validación anti-ciclo en genealogía (se evalúa cuando exista volumen real).
+- Renombre de `vaca_numero` → `animal_numero` en tablas hijas.
+- Reportes/dashboards agregados.
+
+---
+
+¿Apruebas este diseño revisado para pasar a build mode? Implementación por fases: schema + backfill + vista primero, módulo `animals` con relaciones básicas después.
