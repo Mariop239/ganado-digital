@@ -25,3 +25,11 @@ export const SEXO_LABELS: Record<Sexo, string> = {
 
 export const isHembra = (s: Sexo): boolean => s === "hembra";
 export const isMacho = (s: Sexo): boolean => s === "macho";
+
+export const categoriasPorSexo = (s: Sexo): Categoria[] =>
+  s === "hembra"
+    ? ["ternera", "novilla", "vaca"]
+    : ["ternero", "toro", "novillo"];
+
+export const aplicaEstadoReproductivo = (s: Sexo, c: Categoria): boolean =>
+  s === "hembra" && (c === "novilla" || c === "vaca");
