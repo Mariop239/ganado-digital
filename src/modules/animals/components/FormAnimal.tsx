@@ -93,7 +93,7 @@ export function FormAnimal({
       form.setValue("categoria", derivada, { shouldDirty: true });
       return;
     }
-    if (esAdulto && !adultas.includes(categoria)) {
+    if (esAdulto && !(adultas as readonly string[]).includes(categoria)) {
       form.setValue("categoria", adultas[0], { shouldDirty: true });
       return;
     }
