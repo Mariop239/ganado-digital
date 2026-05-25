@@ -1,12 +1,15 @@
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { historialSchema } from "../schemas";
-import type { HistorialInput, Historial } from "../types/domain";
+import { servicioSchema } from "../schemas";
+import type { ServicioInput, Historial } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateHistorial, useUpdateHistorial } from "../hooks/useHistorial";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { useCreateServicio, useUpdateServicio } from "../hooks/useHistorial";
 import { toast } from "sonner";
 
 type Props = {
@@ -15,41 +18,72 @@ type Props = {
   onDone: () => void;
 };
 
+const TIPO_LABELS: Record<ServicioInput["tipo_servicio"], string> = {
+  monta_natural: "Monta Natural",
+  inseminacion: "Inseminación Artificial",
+};
+
+const ESTADO_LABELS: Record<ServicioInput["estado_servicio"], string> = {
+  pendiente: "Pendiente diagnóstico",
+  prenada: "Confirmado preñada",
+  vacia: "Vacía",
+  parida: "Parida",
+};
+
+// Solo estos estados pueden establecerse manualmente desde el form.
+// 'parida' es asignado por el sistema al registrar el nacimiento.
+const ESTADOS_MANUAL: Array<ServicioInput["estado_servicio"]> = ["pendiente", "prenada", "vacia"];
+
+function addDays(isoDate: string, days: number): string {
+  if (!isoDate) return "";
+  const d = new Date(isoDate + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
   const editing = !!registro;
-  const form = useForm<HistorialInput>({
-    resolver: zodResolver(historialSchema),
+  const form = useForm<ServicioInput>({
+    resolver: zodResolver(servicioSchema),
     defaultValues: registro
       ? {
+          tipo_servicio: registro.tipo_servicio,
+          toro: registro.toro ?? "",
           fecha_monta: registro.fecha_monta,
-          toro: registro.toro,
-          fecha_parto: registro.fecha_parto ?? "",
-          sexo_cria: (registro.sexo_cria ?? "") as HistorialInput["sexo_cria"],
-          fecha_destete: registro.fecha_destete ?? "",
+          estado_servicio:
+            registro.estado_servicio === "parida" ? "prenada" : registro.estado_servicio,
           observaciones: registro.observaciones ?? "",
         }
-      : { fecha_monta: "", toro: "", fecha_parto: "", sexo_cria: "", fecha_destete: "", observaciones: "" },
+      : {
+          tipo_servicio: "monta_natural",
+          toro: "",
+          fecha_monta: "",
+          estado_servicio: "pendiente",
+          observaciones: "",
+        },
   });
-  const create = useCreateHistorial(vacaNumero);
-  const update = useUpdateHistorial(vacaNumero);
+  const create = useCreateServicio(vacaNumero);
+  const update = useUpdateServicio(vacaNumero);
 
-  const onSubmit = async (values: HistorialInput) => {
+  const fechaMonta = form.watch("fecha_monta");
+  const fechaProbableParto = addDays(fechaMonta, 283);
+
+  const onSubmit = async (values: ServicioInput) => {
     try {
       if (editing) {
         await update.mutateAsync({ id: registro!.id, input: values });
-        toast.success("Registro actualizado");
+        toast.success("Servicio actualizado");
       } else {
         await create.mutateAsync(values);
-        toast.success("Registro añadido");
+        toast.success("Servicio registrado");
       }
       onDone();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error al guardar";
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
     }
   };
 
-  const err = (k: keyof HistorialInput) =>
+  const err = (k: keyof ServicioInput) =>
     form.formState.errors[k] && (
       <p className="text-sm text-destructive">{form.formState.errors[k]?.message as string}</p>
     );
@@ -57,48 +91,81 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
+        <Controller
+          control={form.control}
+          name="tipo_servicio"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label className="text-base">Tipo de servicio *</Label>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(TIPO_LABELS) as Array<keyof typeof TIPO_LABELS>).map((t) => (
+                    <SelectItem key={t} value={t}>{TIPO_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {err("tipo_servicio")}
+            </div>
+          )}
+        />
+
         <div className="space-y-2">
-          <Label htmlFor="fecha_monta" className="text-base">Fecha de monta *</Label>
-          <Input id="fecha_monta" type="date" className="h-12 text-base" {...form.register("fecha_monta")} />
-          {err("fecha_monta")}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="toro" className="text-base">Toro</Label>
+          <Label htmlFor="toro" className="text-base">Toro / Pajuela</Label>
           <Input id="toro" className="h-12 text-base" {...form.register("toro")} />
           {err("toro")}
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="fecha_parto" className="text-base">Fecha de parto</Label>
-          <Input id="fecha_parto" type="date" className="h-12 text-base" {...form.register("fecha_parto")} />
-          {err("fecha_parto")}
+          <Label htmlFor="fecha_monta" className="text-base">Fecha de servicio *</Label>
+          <Input id="fecha_monta" type="date" className="h-12 text-base" {...form.register("fecha_monta")} />
+          {err("fecha_monta")}
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="sexo_cria" className="text-base">Sexo de cría</Label>
-          <select
-            id="sexo_cria"
-            className="h-12 w-full rounded-md border border-input bg-background px-3 text-base"
-            {...form.register("sexo_cria")}
-          >
-            <option value="">— Sin especificar —</option>
-            <option value="Macho">Macho</option>
-            <option value="Hembra">Hembra</option>
-          </select>
-          {err("sexo_cria")}
+          <Label htmlFor="fecha_probable_parto" className="text-base">
+            Fecha probable de parto
+          </Label>
+          <Input
+            id="fecha_probable_parto"
+            type="date"
+            className="h-12 text-base bg-muted"
+            value={fechaProbableParto}
+            readOnly
+            tabIndex={-1}
+          />
+          <p className="text-xs text-muted-foreground">Calculada automáticamente (+283 días).</p>
         </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="fecha_destete" className="text-base">Fecha de destete</Label>
-          <Input id="fecha_destete" type="date" className="h-12 text-base" {...form.register("fecha_destete")} />
-          {err("fecha_destete")}
-        </div>
+
+        <Controller
+          control={form.control}
+          name="estado_servicio"
+          render={({ field }) => (
+            <div className="space-y-2 sm:col-span-2">
+              <Label className="text-base">Estado *</Label>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ESTADOS_MANUAL.map((e) => (
+                    <SelectItem key={e} value={e}>{ESTADO_LABELS[e]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {err("estado_servicio")}
+            </div>
+          )}
+        />
+
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="observaciones" className="text-base">Observaciones</Label>
           <Textarea id="observaciones" rows={3} className="text-base" {...form.register("observaciones")} />
           {err("observaciones")}
         </div>
       </div>
+
       <div className="flex justify-end gap-2 pt-2">
         <Button type="submit" size="lg" className="min-h-12" disabled={form.formState.isSubmitting}>
-          {editing ? "Guardar cambios" : "Añadir registro"}
+          {editing ? "Guardar cambios" : "Registrar servicio"}
         </Button>
       </div>
     </form>
