@@ -1,4 +1,5 @@
 export { useAnimal } from "./hooks/useAnimal";
+export { useAnimalById } from "./hooks/useAnimalById";
 export {
   useAnimals,
   useCreateAnimal,
