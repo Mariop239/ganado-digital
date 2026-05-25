@@ -25,18 +25,18 @@ export function ListaAnimales() {
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useAnimals({
     sexo: sexo === "todos" ? undefined : sexo,
-    categoria: categoria === "todas" ? undefined : categoria,
     estado_actual: soloActivas ? "activa" : undefined,
   });
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = q.trim().toLowerCase();
-    if (!term) return data;
-    return data.filter(
-      (a) => a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term),
-    );
-  }, [data, q]);
+    return data.filter((a) => {
+      if (categoria !== "todas" && a.categoria_view !== categoria) return false;
+      if (!term) return true;
+      return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
+    });
+  }, [data, q, categoria]);
 
   return (
     <div className="space-y-5">
