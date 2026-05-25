@@ -19,7 +19,7 @@ import { useAnimalById } from "../hooks/useAnimalById";
 import { useHijos } from "../hooks/useHijos";
 import { useUpdateRelaciones } from "../hooks/useUpdateRelaciones";
 import { SelectorAnimal } from "./SelectorAnimal";
-import type { Animal } from "../types/domain";
+import type { AnimalView } from "../types/domain";
 
 type Props = { numero: string };
 
@@ -90,7 +90,7 @@ function FamiliaEditor({ animalId, numero }: { animalId: string; numero: string 
                       {h.nombre ? ` · ${h.nombre}` : ""}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {h.sexo} · {h.categoria}
+                      {h.sexo} · {h.categoria_view}
                     </div>
                   </div>
                   <Button asChild variant="ghost" size="sm" className="min-h-10">
@@ -127,7 +127,7 @@ function PadreRow({
   texto,
 }: {
   label: string;
-  animal: Animal | null;
+  animal: AnimalView | null;
   texto: string;
 }) {
   if (animal) {
@@ -147,7 +147,7 @@ function PadreRow({
               {animal.nombre ? ` · ${animal.nombre}` : ""}
             </div>
             <div className="text-xs text-muted-foreground">
-              {animal.sexo} · {animal.categoria}
+              {animal.sexo} · {animal.categoria_view}
             </div>
           </div>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
