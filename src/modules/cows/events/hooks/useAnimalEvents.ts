@@ -4,7 +4,7 @@ import {
   deleteEvent,
   listEventsPorVaca,
 } from "../repositories/events.repository";
-import type { AnimalEventInput, AnimalEventType } from "../types/domain";
+import type { AnimalEventInput } from "../types/domain";
 
 export function useAnimalEvents(vacaNumero: string) {
   return useQuery({
