@@ -16,9 +16,8 @@ export function useAnimalEvents(vacaNumero: string) {
 
 export function useCreateAnimalEvent(vacaNumero: string) {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: <T extends AnimalEventType>(input: AnimalEventInput<T>) =>
-      createEvent(vacaNumero, input),
+  return useMutation<unknown, Error, AnimalEventInput>({
+    mutationFn: (input) => createEvent(vacaNumero, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animal-events", vacaNumero] });
       qc.invalidateQueries({ queryKey: ["vaca", vacaNumero] });
