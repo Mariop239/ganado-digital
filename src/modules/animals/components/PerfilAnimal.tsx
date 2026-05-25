@@ -9,33 +9,37 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { FormVaca } from "./FormVaca";
-import { EgresoDialog } from "./EgresoDialog";
-import { useReactivarVaca } from "../hooks/useVacas";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormAnimal } from "./FormAnimal";
+import { EstadoAnimalDialog } from "./EstadoAnimalDialog";
+import { FamiliaTab } from "./FamiliaTab";
+import { useReactivarAnimal } from "../hooks/useAnimals";
+import type { Animal } from "../types/domain";
+import { CATEGORIA_LABELS, SEXO_LABELS, aplicaEstadoReproductivo } from "../constants/categorias";
+import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import { HistorialTabla } from "@/modules/breeding";
 import { VacunasTablaVaca } from "@/modules/vaccinations";
-import { EventTimeline, EventDialog } from "../events";
-import { FamiliaTab } from "@/modules/animals";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Vaca } from "../types/domain";
+import { EventTimeline, EventDialog } from "@/modules/cows/events";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
 
-const rows = (v: Vaca): Array<[string, string]> => [
-  ["Número", v.numero],
-  ["Nombre", v.nombre || "—"],
-  ["Dueño", v.dueno || "—"],
-  ["Color", v.color || "—"],
-  ["Raza", v.raza || "—"],
-  ["Padre", v.padre || "—"],
-  ["Madre", v.madre || "—"],
+const rows = (a: Animal): Array<[string, string]> => [
+  ["Número", a.numero],
+  ["Nombre", a.nombre || "—"],
+  ["Sexo", SEXO_LABELS[a.sexo]],
+  ["Categoría", CATEGORIA_LABELS[a.categoria]],
+  ["Fecha de nacimiento", fmt(a.fecha_nacimiento)],
+  ["Dueño", a.dueno || "—"],
+  ["Color", a.color || "—"],
+  ["Raza", a.raza || "—"],
 ];
 
-export function PerfilVaca({ vaca }: { vaca: Vaca }) {
+export function PerfilAnimal({ animal }: { animal: Animal }) {
   const [editOpen, setEditOpen] = useState(false);
-  const reactivar = useReactivarVaca(vaca.numero);
-  const egresada = !!vaca.fecha_egreso;
+  const reactivar = useReactivarAnimal(animal.numero);
+  const egresada = animal.estado_actual !== "activa";
+  const esHembraAdulta = aplicaEstadoReproductivo(animal.sexo, animal.categoria);
 
   return (
     <div className="space-y-6">
@@ -47,11 +51,16 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-2xl">
-              {vaca.nombre || `Vaca #${vaca.numero}`}
+              {animal.nombre || `Animal #${animal.numero}`}
             </CardTitle>
-            {egresada && <Badge variant="destructive">Egresada</Badge>}
+            <Badge variant="secondary">{SEXO_LABELS[animal.sexo]}</Badge>
+            <Badge variant="outline">{CATEGORIA_LABELS[animal.categoria]}</Badge>
+            {animal.estado_reproductivo && (
+              <Badge variant="outline">{ESTADO_REPRODUCTIVO_LABELS[animal.estado_reproductivo]}</Badge>
+            )}
+            {egresada && <Badge variant="destructive">{ESTADO_ACTUAL_LABELS[animal.estado_actual]}</Badge>}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="lg" className="min-h-12" onClick={() => setEditOpen(true)}>
@@ -59,19 +68,19 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
             </Button>
             {egresada ? (
               <Button variant="outline" size="lg" className="min-h-12" onClick={async () => {
-                try { await reactivar.mutateAsync(); toast.success("Vaca reactivada"); }
+                try { await reactivar.mutateAsync(); toast.success("Animal reactivado"); }
                 catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Error"); }
               }}>
                 <RotateCcw className="mr-2 h-5 w-5" /> Reactivar
               </Button>
             ) : (
-              <EgresoDialog numero={vaca.numero} />
+              <EstadoAnimalDialog numero={animal.numero} />
             )}
           </div>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-            {rows(vaca).map(([k, v]) => (
+            {rows(animal).map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-border/60 py-2">
                 <dt className="font-medium text-muted-foreground">{k}</dt>
                 <dd className="text-right text-foreground">{v}</dd>
@@ -81,11 +90,11 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
               <>
                 <div className="flex justify-between gap-4 border-b border-border/60 py-2">
                   <dt className="font-medium text-muted-foreground">Fecha de egreso</dt>
-                  <dd className="text-right">{fmt(vaca.fecha_egreso)}</dd>
+                  <dd className="text-right">{fmt(animal.fecha_egreso)}</dd>
                 </div>
                 <div className="flex justify-between gap-4 border-b border-border/60 py-2 sm:col-span-2">
                   <dt className="font-medium text-muted-foreground">Motivo</dt>
-                  <dd className="text-right">{vaca.motivo_egreso || "—"}</dd>
+                  <dd className="text-right">{animal.motivo_egreso || "—"}</dd>
                 </div>
               </>
             )}
@@ -93,36 +102,40 @@ export function PerfilVaca({ vaca }: { vaca: Vaca }) {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="reproduccion" className="w-full">
+      <Tabs defaultValue={esHembraAdulta ? "reproduccion" : "eventos"} className="w-full">
         <TabsList className="grid w-full grid-cols-4 sm:w-auto sm:inline-flex">
-          <TabsTrigger value="reproduccion" className="min-h-11">Reproducción</TabsTrigger>
+          {esHembraAdulta && (
+            <TabsTrigger value="reproduccion" className="min-h-11">Reproducción</TabsTrigger>
+          )}
           <TabsTrigger value="vacunas" className="min-h-11">Vacunas y Médico</TabsTrigger>
           <TabsTrigger value="eventos" className="min-h-11">Eventos</TabsTrigger>
           <TabsTrigger value="familia" className="min-h-11">Familia</TabsTrigger>
         </TabsList>
-        <TabsContent value="reproduccion" className="mt-4">
-          <HistorialTabla vacaNumero={vaca.numero} />
-        </TabsContent>
+        {esHembraAdulta && (
+          <TabsContent value="reproduccion" className="mt-4">
+            <HistorialTabla vacaNumero={animal.numero} />
+          </TabsContent>
+        )}
         <TabsContent value="vacunas" className="mt-4">
-          <VacunasTablaVaca vacaNumero={vaca.numero} />
+          <VacunasTablaVaca vacaNumero={animal.numero} />
         </TabsContent>
         <TabsContent value="eventos" className="mt-4 space-y-4">
           <div className="flex justify-end">
-            <EventDialog vacaNumero={vaca.numero} />
+            <EventDialog vacaNumero={animal.numero} />
           </div>
-          <EventTimeline vacaNumero={vaca.numero} />
+          <EventTimeline vacaNumero={animal.numero} />
         </TabsContent>
         <TabsContent value="familia" className="mt-4">
-          <FamiliaTab numero={vaca.numero} />
+          <FamiliaTab numero={animal.numero} />
         </TabsContent>
       </Tabs>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar vaca</DialogTitle>
+            <DialogTitle>Editar animal</DialogTitle>
           </DialogHeader>
-          <FormVaca vaca={vaca} onDone={() => setEditOpen(false)} />
+          <FormAnimal animal={animal} onDone={() => setEditOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>

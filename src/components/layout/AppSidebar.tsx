@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Mis Vacas", url: "/", icon: Beef },
+  { title: "Animales", url: "/", icon: Beef },
   { title: "Registro de Vacunas", url: "/vacunas", icon: Syringe },
 ] as const;
 

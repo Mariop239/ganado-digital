@@ -14,7 +14,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedVacunasRouteImport } from './routes/_authenticated/vacunas'
+import { Route as AuthenticatedAnimalesIndexRouteImport } from './routes/_authenticated/animales.index'
 import { Route as AuthenticatedVacasNumeroRouteImport } from './routes/_authenticated/vacas.$numero'
+import { Route as AuthenticatedAnimalesNumeroRouteImport } from './routes/_authenticated/animales.$numero'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -40,10 +42,22 @@ const AuthenticatedVacunasRoute = AuthenticatedVacunasRouteImport.update({
   path: '/vacunas',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAnimalesIndexRoute =
+  AuthenticatedAnimalesIndexRouteImport.update({
+    id: '/animales/',
+    path: '/animales/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedVacasNumeroRoute =
   AuthenticatedVacasNumeroRouteImport.update({
     id: '/vacas/$numero',
     path: '/vacas/$numero',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAnimalesNumeroRoute =
+  AuthenticatedAnimalesNumeroRouteImport.update({
+    id: '/animales/$numero',
+    path: '/animales/$numero',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 
@@ -52,14 +66,18 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/vacunas': typeof AuthenticatedVacunasRoute
+  '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
+  '/animales/': typeof AuthenticatedAnimalesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/vacunas': typeof AuthenticatedVacunasRoute
   '/': typeof AuthenticatedIndexRoute
+  '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
+  '/animales': typeof AuthenticatedAnimalesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,13 +86,29 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/vacunas': typeof AuthenticatedVacunasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/_authenticated/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
+  '/_authenticated/animales/': typeof AuthenticatedAnimalesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/vacunas' | '/vacas/$numero'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/vacunas'
+    | '/animales/$numero'
+    | '/vacas/$numero'
+    | '/animales/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/signup' | '/vacunas' | '/' | '/vacas/$numero'
+  to:
+    | '/login'
+    | '/signup'
+    | '/vacunas'
+    | '/'
+    | '/animales/$numero'
+    | '/vacas/$numero'
+    | '/animales'
   id:
     | '__root__'
     | '/_authenticated'
@@ -82,7 +116,9 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/vacunas'
     | '/_authenticated/'
+    | '/_authenticated/animales/$numero'
     | '/_authenticated/vacas/$numero'
+    | '/_authenticated/animales/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -128,11 +164,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVacunasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/animales/': {
+      id: '/_authenticated/animales/'
+      path: '/animales'
+      fullPath: '/animales/'
+      preLoaderRoute: typeof AuthenticatedAnimalesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/vacas/$numero': {
       id: '/_authenticated/vacas/$numero'
       path: '/vacas/$numero'
       fullPath: '/vacas/$numero'
       preLoaderRoute: typeof AuthenticatedVacasNumeroRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/animales/$numero': {
+      id: '/_authenticated/animales/$numero'
+      path: '/animales/$numero'
+      fullPath: '/animales/$numero'
+      preLoaderRoute: typeof AuthenticatedAnimalesNumeroRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
   }
@@ -141,13 +191,17 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedVacunasRoute: typeof AuthenticatedVacunasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAnimalesNumeroRoute: typeof AuthenticatedAnimalesNumeroRoute
   AuthenticatedVacasNumeroRoute: typeof AuthenticatedVacasNumeroRoute
+  AuthenticatedAnimalesIndexRoute: typeof AuthenticatedAnimalesIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVacunasRoute: AuthenticatedVacunasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAnimalesNumeroRoute: AuthenticatedAnimalesNumeroRoute,
   AuthenticatedVacasNumeroRoute: AuthenticatedVacasNumeroRoute,
+  AuthenticatedAnimalesIndexRoute: AuthenticatedAnimalesIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -162,13 +216,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

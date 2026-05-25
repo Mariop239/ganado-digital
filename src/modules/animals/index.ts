@@ -1,9 +1,22 @@
 export { useAnimal } from "./hooks/useAnimal";
-export { useAnimals } from "./hooks/useAnimals";
+export {
+  useAnimals,
+  useCreateAnimal,
+  useUpdateAnimal,
+  useMarcarEgresoAnimal,
+  useReactivarAnimal,
+  useDeleteAnimal,
+} from "./hooks/useAnimals";
 export { useHijos } from "./hooks/useHijos";
 export { useUpdateRelaciones } from "./hooks/useUpdateRelaciones";
 export { SelectorAnimal } from "./components/SelectorAnimal";
 export { FamiliaTab } from "./components/FamiliaTab";
+export { FormAnimal } from "./components/FormAnimal";
+export { ListaAnimales } from "./components/ListaAnimales";
+export { PerfilAnimal } from "./components/PerfilAnimal";
+export { EstadoAnimalDialog } from "./components/EstadoAnimalDialog";
+export { animalSchema } from "./schemas";
+export type { AnimalFormInput, AnimalFormOutput } from "./schemas";
 export type {
   Animal,
   Sexo,
@@ -19,6 +32,8 @@ export {
   SEXO_LABELS,
   isHembra,
   isMacho,
+  categoriasPorSexo,
+  aplicaEstadoReproductivo,
 } from "./constants/categorias";
 export {
   ESTADOS_REPRODUCTIVOS,

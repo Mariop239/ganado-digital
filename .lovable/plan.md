@@ -1,156 +1,116 @@
+# Consolidación del dominio `animals` como experiencia principal
 
-# Evolución del dominio: `cows` → `animals` (revisado)
+## Estado actual (híbrido)
 
-## 1. Decisiones de diseño (ajustes incorporados)
+- `/` renderiza `ListaVacas` → filtra hembras y `fecha_egreso`. Machos invisibles.
+- Perfil principal `/vacas/$numero` → `PerfilVaca` (módulo `cows`).
+- Creación: `FormVaca` solo edita campos legacy, sin `sexo`/`categoria`/`estado_*`/IDs de padres.
+- `EgresoDialog` (cows) escribe `animal_events` pero la UX y copy son "vaca".
+- `FamiliaTab` ya existe pero está como pestaña anexa y sus links de hijos van a `/vacas/$numero` (rompe para machos).
+- Triggers BD sincronizan `vacas ↔ animals` en ambos sentidos → datos OK, pero **frontend con dos fuentes de verdad**.
 
-- **`categoria` con TEXT + CHECK**, no enum PostgreSQL. Agregar/quitar valores no requiere `ALTER TYPE` ni migraciones destructivas.
-- **Tres estados ortogonales**, no uno solo:
-  - `categoria` — etapa/tipo: `ternero`, `ternera`, `novilla`, `vaca`, `toro`, `novillo`.
-  - `estado_reproductivo` — solo hembras adultas: `soltera`, `gestante`, `parida`, `seca` (nullable para machos/crías).
-  - `estado_actual` — ciclo de vida: `activa`, `vendida`, `fallecida` (default `activa`).
-- **`fecha_egreso` / `motivo_egreso` se mantienen** como caché de compatibilidad, alimentados por el trigger existente de `animal_events`. `animal_events` queda como fuente de verdad a futuro.
-- **Rutas amigables por `numero`**: `/animales/104`. Internamente el `id` es UUID y se usa para FKs (`mother_id`, `father_id`), pero la URL y la UI muestran `numero`.
-- **Sin automatización temprana**: no `recompute_categoria` automática, no triggers de transición de estado, no validación anti-ciclo recursiva. Los tres estados se editan manualmente desde el form. Validaciones se agregan cuando el flujo real lo justifique.
-- **Genealogía mínima**: madre, padre, hijos directos. Sin árbol multinivel, sin RPC recursiva, sin `GenealogiaTree`.
+## Diagnóstico
 
-## 2. Modelo SQL
+La UI sigue pensando en "vacas paridas". `animals` aparece solo como anexo. Hay que invertir: `animals` pasa a ser la UI primaria; `cows` queda como repo interno + alias de ruta.
 
-```sql
-CREATE TABLE public.animals (
-  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  numero               TEXT NOT NULL UNIQUE,
-  nombre               TEXT NOT NULL DEFAULT '',
-  sexo                 TEXT NOT NULL CHECK (sexo IN ('hembra','macho')),
-  categoria            TEXT NOT NULL CHECK (categoria IN
-                         ('ternero','ternera','novilla','vaca','toro','novillo')),
-  estado_reproductivo  TEXT CHECK (estado_reproductivo IS NULL OR estado_reproductivo IN
-                         ('soltera','gestante','parida','seca')),
-  estado_actual        TEXT NOT NULL DEFAULT 'activa' CHECK (estado_actual IN
-                         ('activa','vendida','fallecida')),
-  fecha_nacimiento     DATE,
-  color                TEXT NOT NULL DEFAULT '',
-  raza                 TEXT NOT NULL DEFAULT '',
-  dueno                TEXT NOT NULL DEFAULT '',
-  mother_id            UUID REFERENCES public.animals(id) ON DELETE SET NULL,
-  father_id            UUID REFERENCES public.animals(id) ON DELETE SET NULL,
-  -- compatibilidad: textos libres heredados de vacas.madre / vacas.padre
-  madre_texto          TEXT NOT NULL DEFAULT '',
-  padre_texto          TEXT NOT NULL DEFAULT '',
-  -- caché alimentado por el trigger ya existente sync_vaca_estado
-  fecha_egreso         DATE,
-  motivo_egreso        TEXT,
-  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+## Estrategia
 
-CREATE INDEX idx_animals_categoria ON public.animals(categoria);
-CREATE INDEX idx_animals_sexo ON public.animals(sexo);
-CREATE INDEX idx_animals_mother ON public.animals(mother_id);
-CREATE INDEX idx_animals_father ON public.animals(father_id);
-CREATE INDEX idx_animals_activos ON public.animals(numero) WHERE estado_actual = 'activa';
+1. **UI única basada en `animals`**.
+2. **Compatibilidad legacy solo en datos** (vista `vacas` + triggers intactos).
+3. **Cleanup gradual sin breaking**: `/vacas/*` redirige a `/animales/*`.
 
--- RLS espejo de las tablas existentes
-ALTER TABLE public.animals ENABLE ROW LEVEL SECURITY;
--- 4 policies authenticated (select/insert/update/delete) USING true
-```
+## Cambios concretos
 
-**Vista de compatibilidad** para que el código actual siga funcionando sin tocar repos/hooks/tablas hijas:
+### 1. Completar `modules/animals`
 
-```sql
--- Renombrar tabla vacas → _vacas_legacy y exponer vista vacas
-CREATE VIEW public.vacas AS
-  SELECT numero, nombre, color, raza, dueno,
-         madre_texto AS madre, padre_texto AS padre,
-         fecha_egreso, motivo_egreso, created_at, updated_at
-    FROM public.animals
-   WHERE sexo = 'hembra';
-```
+- **`schemas/index.ts`**: añadir `animalSchema` con todos los campos + `superRefine` para:
+  - `sexo = "macho"` ⇒ `estado_reproductivo` forzado a `null` (reset implícito, no error).
+  - **Validación cruzada `sexo ↔ categoria`**:
+    - `hembra` ⇒ `categoria ∈ {ternera, novilla, vaca}`.
+    - `macho` ⇒ `categoria ∈ {ternero, toro, novillo}`.
+    - Combinaciones inválidas devuelven error en `categoria`.
+  - `estado_reproductivo` solo permitido si `sexo=hembra` y `categoria ∈ {novilla, vaca}`.
+- **`repositories/animals.repository.ts`**: añadir `createAnimal`, `updateAnimal`, `deleteAnimal`, `marcarEgreso(numero, {fecha, motivo, tipo})` (inserta `animal_events`), `reactivarAnimal`.
+- **`hooks/useAnimals.ts`**: añadir `useCreateAnimal`, `useUpdateAnimal`, `useMarcarEgresoAnimal`, `useReactivarAnimal`, `useDeleteAnimal`. Invalidar `["animals"]`, `["animal", numero]`, `["animal-events", numero]`, y también `["vacas"]`/`["vaca", numero]` durante la transición.
+- **`components/FormAnimal.tsx`**: única fuente de verdad para crear/editar.
+  - Al cambiar `sexo` a `macho`: limpia `estado_reproductivo` en el form state.
+  - Opciones de `categoria` filtradas dinámicamente según `sexo` seleccionado.
+  - `estado_reproductivo` solo visible si hembra adulta.
+  - `mother_id` selector filtrado `sexo=hembra`; `father_id` filtrado `sexo=macho`; fallback texto libre.
+- **`components/ListaAnimales.tsx`**: reemplaza `ListaVacas`. Filtros: búsqueda, `sexo`, `categoria`, `estado_actual` (default `activa`). Link a `/animales/$numero`.
+- **`components/PerfilAnimal.tsx`**: reemplaza `PerfilVaca`. Badges (`sexo`, `categoria`, `estado_reproductivo`, `estado_actual`). Tabs: Reproducción (solo hembra adulta), Vacunas, Eventos, Familia.
+- **`components/EstadoAnimalDialog.tsx`** *(renombrado desde EgresoDialogAnimal)*: maneja el cambio de `estado_actual` (egreso por venta, fallecimiento, etc.). Usa `useMarcarEgresoAnimal` internamente; copy genérico ("Cambiar estado del animal"). Mantiene UX similar al `EgresoDialog` legacy.
 
-`animal_events`, `control_vacunas`, `historial` siguen referenciando `vaca_numero TEXT`. No se tocan: `numero` sigue siendo UNIQUE en `animals`, y la vista preserva la columna. Renombrar a `animal_numero` queda como tarea posterior opcional.
+### 2. Rutas
 
-## 3. TypeScript + Zod
+- Crear `src/routes/_authenticated/animales.index.tsx` → `ListaAnimales`.
+- Crear `src/routes/_authenticated/animales.$numero.tsx` → `PerfilAnimal`.
+- `src/routes/_authenticated/index.tsx` → renderizar `ListaAnimales`.
+- `src/routes/_authenticated/vacas.$numero.tsx` → redirect interno a `/animales/$numero` (`beforeLoad` con `throw redirect`).
+
+### 3. `modules/cows` → capa interna
+
+- **Mantener**: `vacas.repository.ts`, tipos, hooks (`breeding`/`vaccinations`/`events` aún usan `vaca_numero`).
+- **Quitar de exports**: `ListaVacas`, `PerfilVaca`, `FormVaca`, `EgresoDialog`.
+- **Borrar archivos UI** tras verificar que no quedan imports (Fase C).
+- Marcar el módulo `@deprecated — internal repo only`.
+
+### 4. Subcomponentes compartidos
+
+`HistorialTabla`, `VacunasTablaVaca`, `EventTimeline`, `EventDialog` siguen recibiendo `vacaNumero` (drop-in: `animal.numero === vaca.numero`). Rename léxico queda fuera de scope.
+
+### 5. `FamiliaTab`
+
+- Links de hijos cambian a `/animales/$numero` (funciona para ambos sexos).
+- Se elimina del wrapper de `PerfilVaca` (que desaparece) y vive solo en `PerfilAnimal`.
+
+### 6. Navegación
+
+- `AppSidebar`: si menciona "Vacas", renombrar a "Animales", apuntar a `/`.
+- Cualquier `<Link to="/vacas/$numero">` restante → `/animales/$numero`.
+
+## Fases (cada commit verde)
 
 ```text
-modules/animals/
-  types/domain.ts       -> Animal, Sexo, Categoria, EstadoReproductivo, EstadoActual
-  schemas/index.ts      -> animalSchema, animalInputSchema, relacionarPadresSchema
-  constants/
-    categorias.ts       -> CATEGORIAS, CATEGORIA_LABELS, helpers (isHembra, etc.)
-    estados.ts          -> ESTADOS_REPRODUCTIVOS, ESTADOS_ACTUALES + labels
-  repositories/animals.repository.ts
-  hooks/
-    useAnimals.ts       -> lista con filtros { categoria?, sexo?, estado_actual? }
-    useAnimal.ts        -> detalle por numero
-    useHijos.ts         -> SELECT * FROM animals WHERE mother_id = $ OR father_id = $
-  components/
-    ListaAnimales.tsx
-    PerfilAnimal.tsx    -> tabs: Datos, Familia, Reproducción, Vacunas, Eventos
-    FamiliaTab.tsx      -> links a madre, padre, lista de hijos
-    SelectorAnimal.tsx  -> combobox filtrable por sexo (para asignar madre/padre)
-    FormAnimal.tsx
+Fase A — Módulo animals completo, sin tocar UI legacy
+  - schemas + superRefine (sexo↔categoria, reset estado_reproductivo)
+  - repository extendido + hooks de mutación
+  - FormAnimal, ListaAnimales, PerfilAnimal, EstadoAnimalDialog
+  - Rutas /animales/* nuevas
+  - FamiliaTab: links a /animales/$numero
+  → /vacas sigue intacto
+
+Fase B — Switch del flujo principal
+  - / renderiza ListaAnimales
+  - /vacas/$numero → redirect a /animales/$numero
+  - Sidebar/nav: "Animales"
+
+Fase C — Cleanup UI legacy
+  - Borrar ListaVacas, PerfilVaca, FormVaca, EgresoDialog
+  - Limpiar exports de modules/cows/index.ts
 ```
 
-Zod refleja los CHECK constraints (unions literales). `estado_reproductivo` es `.optional().nullable()`.
+## Fuera de scope
 
-`modules/cows/` queda como re-export thin → `animals/` durante la transición, y luego se elimina.
+- Genealogía multinivel, árboles, RPC recursivas.
+- Rename `vaca_numero → animal_numero` en tablas hijas.
+- Borrar tabla/vista `vacas` o triggers.
+- Reescribir `breeding`/`vaccinations`/`events`.
+- Nuevos triggers o automatizaciones de `categoria`.
+- Wrappers `cows → animals`.
+- Migraciones de BD.
 
-## 4. Frontend — navegación relacional mínima
+## Riesgos y mitigación
 
-- Ruta nueva `/_authenticated/animales.$numero.tsx`. Las rutas `/vacas/*` se mantienen como alias (la vista `vacas` las sostiene).
-- `PerfilAnimal` agrega tab **"Familia"**:
-  - Madre: link a `/animales/{numero_madre}` o el texto libre `madre_texto` si no hay FK.
-  - Padre: idem.
-  - Hijos: lista con link por hijo (consulta `useHijos`).
-- `FormAnimal` permite asignar `mother_id`/`father_id` vía `SelectorAnimal` (combobox con búsqueda por numero/nombre, filtrado por sexo correcto). Si el usuario no encuentra al ancestro en el sistema, conserva el texto libre.
-- Filtros de lista por `categoria`, `sexo`, `estado_actual`.
+- **Cache desincronizado** BD ↔ React Query: invalidar ambas keys en mutaciones de `animals`.
+- **Machos creados desde FormAnimal no aparecen en vista `vacas`**: esperado y correcto.
+- **Egreso desde animals**: insert en `animal_events` con `vaca_numero=animal.numero` dispara el trigger `sync_vaca_estado` y luego `sync_vacas_to_animals` actualiza `animals.estado_actual`/`fecha_egreso`.
+- **Bookmarks `/vacas/123`**: preservados vía redirect.
 
-## 5. Estrategia de migración (fases pequeñas y reversibles)
+## Cómo se evita deuda futura
 
-1. **Schema aditivo**: crear `animals` con CHECKs, índices y RLS. No tocar `vacas`.
-2. **Backfill**: `INSERT INTO animals (id, numero, nombre, sexo, categoria, estado_actual, fecha_egreso, motivo_egreso, madre_texto, padre_texto, color, raza, dueno, created_at, updated_at) SELECT gen_random_uuid(), numero, nombre, 'hembra', 'vaca', CASE WHEN fecha_egreso IS NULL THEN 'activa' ELSE 'vendida' END, fecha_egreso, motivo_egreso, madre, padre, color, raza, dueno, created_at, updated_at FROM vacas`. `mother_id`/`father_id` quedan NULL; los textos se preservan.
-3. **Swap**: renombrar `vacas` → `_vacas_legacy`, crear vista `vacas` sobre `animals`. Repos y hooks actuales siguen funcionando sin cambios.
-4. **Módulo `animals`**: tipos, schemas, repo, hooks, listado, perfil con tab Familia, selector de ancestros. `modules/cows` se convierte en re-export.
-5. **Edición de relaciones**: form permite asignar madre/padre desde el catálogo existente; hijos se muestran como lista navegable.
-6. **Limpieza** (opcional, fase tardía): renombrar `vaca_numero` → `animal_numero` en tablas hijas, deprecar `modules/cows`, deprecar rutas `/vacas`.
+- Una sola UI (`PerfilAnimal`); archivos legacy borrados eliminan la tentación de bifurcar.
+- `modules/cows` queda explícitamente `@deprecated — internal`.
+- Próxima fase natural (no aquí): renombrar `vaca_numero → animal_numero` y reemplazar la vista `vacas` por queries directas en módulos hijos.
 
-Cada paso es independiente y reversible. Validación: `count(vacas)` antes vs. `count(animals WHERE sexo='hembra')` después deben coincidir.
-
-## 6. Compatibilidad con lo existente
-
-| Hoy | Después |
-|---|---|
-| Tabla `vacas` | Vista sobre `animals` |
-| `vacas.numero` PK | `animals.numero` UNIQUE |
-| `animal_events.vaca_numero` FK | Sin cambios (apunta al mismo `numero`) |
-| `control_vacunas`, `historial` | Sin cambios |
-| Hooks `useVaca`, `useVacas`, `useMarcarEgreso`, `useReactivarVaca` | Funcionan vía vista. Más adelante se re-exportan desde `animals` |
-| Trigger `sync_vaca_estado` | Sin cambios (sigue cacheando `fecha_egreso`/`motivo_egreso`) |
-| Rutas `/vacas/$numero` | Se mantienen; se agrega `/animales/$numero` |
-
-## 7. Preparación para fases futuras
-
-- **Eventos / timeline**: ya implementado en `animal_events`, agnóstico al tipo de animal. Cero cambios.
-- **Genealogía multinivel**: la base relacional (`mother_id`, `father_id`) queda lista. Cuando se necesite, se construye una RPC con CTE recursivo encima. **No se implementa ahora.**
-- **Trazabilidad**: append-only ya existe en `animal_events`.
-- **Reportes por categoría / estado**: habilitados por los índices, sin requerir vistas adicionales en esta fase.
-
-## 8. Cómo evitar deuda técnica
-
-- **CHECK + TEXT** en vez de enum: agregar `"vaquillona"` o `"semental"` es un `ALTER TABLE ... DROP CONSTRAINT / ADD CONSTRAINT`, sin migraciones destructivas.
-- **Tres estados separados**: cada uno evoluciona independientemente; nunca un solo campo que mezcle "ternera gestante vendida".
-- **`id` UUID separado de `numero`**: el ID humano puede cambiar sin romper FKs.
-- **Vista `vacas` como contrato explícito**: borrarla es un cambio rastreable, no silencioso.
-- **Sin automatización temprana**: los estados los maneja el usuario hasta que el flujo operativo real demuestre qué transiciones son seguras de automatizar.
-- **`madre_texto`/`padre_texto` preservados**: nunca se pierde información del sistema legacy.
-
-## 9. Fuera de alcance
-
-- `GenealogiaTree`, queries recursivas, múltiples generaciones, RPCs avanzadas.
-- `recompute_categoria`, triggers de transición automática de estados.
-- Validación anti-ciclo en genealogía (se evalúa cuando exista volumen real).
-- Renombre de `vaca_numero` → `animal_numero` en tablas hijas.
-- Reportes/dashboards agregados.
-
----
-
-¿Apruebas este diseño revisado para pasar a build mode? Implementación por fases: schema + backfill + vista primero, módulo `animals` con relaciones básicas después.
+Esperando aprobación para implementar Fase A.
