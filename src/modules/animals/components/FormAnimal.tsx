@@ -13,6 +13,7 @@ import { useCreateAnimal, useUpdateAnimal } from "../hooks/useAnimals";
 import { CATEGORIA_LABELS, SEXO_LABELS, categoriasPorSexo, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADOS_REPRODUCTIVOS, ESTADO_REPRODUCTIVO_LABELS, ESTADOS_ACTUALES, ESTADO_ACTUAL_LABELS } from "../constants/estados";
 import { SelectorAnimal } from "./SelectorAnimal";
+import { derivarCategoria, edadEnMeses, adultasPorSexo } from "../utils/categorias";
 import { toast } from "sonner";
 
 type Props = {
@@ -67,17 +68,40 @@ export function FormAnimal({
 
   const sexo = form.watch("sexo");
   const categoria = form.watch("categoria");
+  const fechaNacimiento = form.watch("fecha_nacimiento");
   const categoriasDisponibles = categoriasPorSexo(sexo);
   const showEstadoRepro = aplicaEstadoReproductivo(sexo, categoria);
 
-  // Reset implícito al cambiar sexo
+  // Derivación biológica
+  const meses = edadEnMeses(fechaNacimiento ?? null);
+  const esJoven = meses !== null && meses <= 15;
+  const esAdulto = meses !== null && meses > 15;
+  const derivada = esJoven
+    ? derivarCategoria({
+        fecha_nacimiento: fechaNacimiento ?? null,
+        sexo,
+        categoria,
+      }).categoria_view
+    : null;
+  const adultas = adultasPorSexo(sexo);
+
+  // Reset implícito al cambiar sexo / fecha_nacimiento
   useEffect(() => {
     if (sexo === "macho") form.setValue("estado_reproductivo", null);
-    if (!categoriasDisponibles.includes(categoria)) {
+
+    if (esJoven && derivada && categoria !== derivada) {
+      form.setValue("categoria", derivada, { shouldDirty: true });
+      return;
+    }
+    if (esAdulto && !(adultas as readonly string[]).includes(categoria)) {
+      form.setValue("categoria", adultas[0], { shouldDirty: true });
+      return;
+    }
+    if (meses === null && !categoriasDisponibles.includes(categoria)) {
       form.setValue("categoria", categoriasDisponibles[categoriasDisponibles.length - 1]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sexo]);
+  }, [sexo, fechaNacimiento]);
 
   useEffect(() => {
     if (!showEstadoRepro) form.setValue("estado_reproductivo", null);
@@ -136,24 +160,39 @@ export function FormAnimal({
           )}
         />
 
-        <Controller
-          control={form.control}
-          name="categoria"
-          render={({ field }) => (
-            <div className="space-y-2">
-              <Label className="text-base">Categoría *</Label>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categoriasDisponibles.map((c) => (
-                    <SelectItem key={c} value={c}>{CATEGORIA_LABELS[c]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {err.categoria && <p className="text-sm text-destructive">{err.categoria.message as string}</p>}
+        {esJoven ? (
+          <div className="space-y-2">
+            <Label className="text-base">Categoría *</Label>
+            <div className="h-12 flex flex-col justify-center">
+              <p className="text-sm text-muted-foreground">
+                Categoría automática: <span className="font-medium text-foreground">{CATEGORIA_LABELS[derivada!]}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Calculada según edad</p>
             </div>
-          )}
-        />
+          </div>
+        ) : (
+          <Controller
+            control={form.control}
+            name="categoria"
+            render={({ field }) => {
+              const opciones = esAdulto ? adultas : categoriasDisponibles;
+              return (
+                <div className="space-y-2">
+                  <Label className="text-base">Categoría *</Label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {opciones.map((c) => (
+                        <SelectItem key={c} value={c}>{CATEGORIA_LABELS[c]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {err.categoria && <p className="text-sm text-destructive">{err.categoria.message as string}</p>}
+                </div>
+              );
+            }}
+          />
+        )}
 
         <Controller
           control={form.control}
