@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { servicioSchema } from "../schemas";
@@ -30,9 +31,10 @@ const ESTADO_LABELS: Record<ServicioInput["estado_servicio"], string> = {
   parida: "Parida",
 };
 
-// Solo estos estados pueden establecerse manualmente desde el form.
-// 'parida' es asignado por el sistema al registrar el nacimiento.
-const ESTADOS_MANUAL: Array<ServicioInput["estado_servicio"]> = ["pendiente", "prenada", "vacia"];
+// Solo estos estados pueden establecerse manualmente desde el form sin fecha de confirmación.
+// 'prenada' se asigna automáticamente al ingresar fecha de confirmación.
+// 'parida' la asigna el sistema al registrar el nacimiento.
+const ESTADOS_SIN_CONFIRMACION: Array<ServicioInput["estado_servicio"]> = ["pendiente", "vacia"];
 
 function addDays(isoDate: string, days: number): string {
   if (!isoDate) return "";
@@ -50,6 +52,7 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
           tipo_servicio: registro.tipo_servicio,
           toro: registro.toro ?? "",
           fecha_monta: registro.fecha_monta,
+          fecha_confirmacion: registro.fecha_confirmacion ?? "",
           estado_servicio:
             registro.estado_servicio === "parida" ? "prenada" : registro.estado_servicio,
           observaciones: registro.observaciones ?? "",
@@ -58,6 +61,7 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
           tipo_servicio: "monta_natural",
           toro: "",
           fecha_monta: "",
+          fecha_confirmacion: "",
           estado_servicio: "pendiente",
           observaciones: "",
         },
@@ -66,7 +70,25 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
   const update = useUpdateServicio(vacaNumero);
 
   const fechaMonta = form.watch("fecha_monta");
-  const fechaProbableParto = addDays(fechaMonta, 283);
+  const fechaConfirmacion = form.watch("fecha_confirmacion");
+  const estadoActual = form.watch("estado_servicio");
+  const hasConfirmacion = !!(fechaConfirmacion && String(fechaConfirmacion).length > 0);
+  const esVacia = estadoActual === "vacia";
+  const fechaProbableParto = esVacia ? "" : addDays(fechaMonta, 283);
+
+  // Si hay fecha de confirmación → fuerza estado a "prenada".
+  useEffect(() => {
+    if (hasConfirmacion && estadoActual !== "prenada") {
+      form.setValue("estado_servicio", "prenada", { shouldValidate: true });
+    }
+  }, [hasConfirmacion, estadoActual, form]);
+
+  // Si el usuario marca "vacia" → limpia fecha de confirmación.
+  useEffect(() => {
+    if (esVacia && hasConfirmacion) {
+      form.setValue("fecha_confirmacion", "", { shouldValidate: true });
+    }
+  }, [esVacia, hasConfirmacion, form]);
 
   const onSubmit = async (values: ServicioFormInput) => {
     try {
@@ -124,19 +146,38 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="fecha_probable_parto" className="text-base">
-            Fecha probable de parto
+          <Label htmlFor="fecha_confirmacion" className="text-base">
+            Fecha de confirmación de preñez
           </Label>
           <Input
-            id="fecha_probable_parto"
+            id="fecha_confirmacion"
             type="date"
-            className="h-12 text-base bg-muted"
-            value={fechaProbableParto}
-            readOnly
-            tabIndex={-1}
+            className="h-12 text-base"
+            disabled={esVacia}
+            {...form.register("fecha_confirmacion")}
           />
-          <p className="text-xs text-muted-foreground">Calculada automáticamente (+283 días).</p>
+          <p className="text-xs text-muted-foreground">
+            Opcional. Al ingresarla, el estado pasa a "Confirmado preñada".
+          </p>
+          {err("fecha_confirmacion")}
         </div>
+
+        {!esVacia && (
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="fecha_probable_parto" className="text-base">
+              Fecha probable de parto
+            </Label>
+            <Input
+              id="fecha_probable_parto"
+              type="date"
+              className="h-12 text-base bg-muted"
+              value={fechaProbableParto}
+              readOnly
+              tabIndex={-1}
+            />
+            <p className="text-xs text-muted-foreground">Calculada automáticamente (+283 días).</p>
+          </div>
+        )}
 
         <Controller
           control={form.control}
@@ -144,14 +185,23 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
           render={({ field }) => (
             <div className="space-y-2 sm:col-span-2">
               <Label className="text-base">Estado *</Label>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value} onValueChange={field.onChange} disabled={hasConfirmacion}>
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ESTADOS_MANUAL.map((e) => (
-                    <SelectItem key={e} value={e}>{ESTADO_LABELS[e]}</SelectItem>
-                  ))}
+                  {hasConfirmacion ? (
+                    <SelectItem value="prenada">{ESTADO_LABELS.prenada}</SelectItem>
+                  ) : (
+                    ESTADOS_SIN_CONFIRMACION.map((e) => (
+                      <SelectItem key={e} value={e}>{ESTADO_LABELS[e]}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {hasConfirmacion && (
+                <p className="text-xs text-muted-foreground">
+                  Estado bloqueado por fecha de confirmación. Borra esa fecha para cambiarlo.
+                </p>
+              )}
               {err("estado_servicio")}
             </div>
           )}
