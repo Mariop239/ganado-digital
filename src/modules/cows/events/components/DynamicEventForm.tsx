@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, type FieldValues, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,14 +26,18 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
     observaciones: z.string().trim().max(1000).optional(),
     payload: def.schema,
   });
-  type FormValues = z.infer<typeof fullSchema>;
+  type FormValues = {
+    fecha: string;
+    observaciones?: string;
+    payload: Record<string, unknown>;
+  };
 
-  const form = useForm<FormValues>({
+  const form = useForm<FormValues & FieldValues>({
     resolver: zodResolver(fullSchema),
     defaultValues: {
       fecha: new Date().toISOString().slice(0, 10),
       observaciones: "",
-      payload: {} as FormValues["payload"],
+      payload: {},
     },
   });
   const create = useCreateAnimalEvent(vacaNumero);
@@ -41,9 +45,9 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
   const onSubmit = async (values: FormValues) => {
     try {
       await create.mutateAsync({
-        tipo,
+        tipo: tipo as never,
         fecha: values.fecha,
-        payload: values.payload,
+        payload: values.payload as never,
         observaciones: values.observaciones || null,
       });
       toast.success(`${def.label} registrado`);
@@ -71,6 +75,7 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
 
       {def.fields.map((f) => {
         const id = `payload.${f.name}`;
+        const fieldPath = `payload.${f.name}` as Path<FormValues>;
         const err = payloadErrors?.[f.name]?.message;
         return (
           <div key={f.name} className="space-y-2">
@@ -83,7 +88,7 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
                 rows={3}
                 className="text-base"
                 placeholder={f.placeholder}
-                {...form.register(`payload.${f.name}` as const)}
+                {...form.register(fieldPath)}
               />
             ) : (
               <Input
@@ -92,7 +97,7 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
                 step={f.kind === "number" ? "any" : undefined}
                 className="h-12 text-base"
                 placeholder={f.placeholder}
-                {...form.register(`payload.${f.name}` as const, {
+                {...form.register(fieldPath, {
                   valueAsNumber: f.kind === "number",
                 })}
               />
