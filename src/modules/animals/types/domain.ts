@@ -34,6 +34,8 @@ export type Animal = {
   padre_texto: string;
   fecha_egreso: string | null;
   motivo_egreso: string | null;
+  ubicacion_actual: string | null;
+  lote_actual: string | null;
   created_at: string;
   updated_at: string;
 };

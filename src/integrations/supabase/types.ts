@@ -70,6 +70,7 @@ export type Database = {
           fecha_egreso: string | null
           fecha_nacimiento: string | null
           id: string
+          lote_actual: string | null
           madre_texto: string
           mother_id: string | null
           motivo_egreso: string | null
@@ -78,6 +79,7 @@ export type Database = {
           padre_texto: string
           raza: string
           sexo: string
+          ubicacion_actual: string | null
           updated_at: string
         }
         Insert: {
@@ -91,6 +93,7 @@ export type Database = {
           fecha_egreso?: string | null
           fecha_nacimiento?: string | null
           id?: string
+          lote_actual?: string | null
           madre_texto?: string
           mother_id?: string | null
           motivo_egreso?: string | null
@@ -99,6 +102,7 @@ export type Database = {
           padre_texto?: string
           raza?: string
           sexo: string
+          ubicacion_actual?: string | null
           updated_at?: string
         }
         Update: {
@@ -112,6 +116,7 @@ export type Database = {
           fecha_egreso?: string | null
           fecha_nacimiento?: string | null
           id?: string
+          lote_actual?: string | null
           madre_texto?: string
           mother_id?: string | null
           motivo_egreso?: string | null
@@ -120,6 +125,7 @@ export type Database = {
           padre_texto?: string
           raza?: string
           sexo?: string
+          ubicacion_actual?: string | null
           updated_at?: string
         }
         Relationships: [

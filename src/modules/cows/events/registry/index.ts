@@ -73,8 +73,11 @@ export const EVENT_REGISTRY: Registry = {
     icon: Truck,
     isTerminal: false,
     schema: trasladoPayloadSchema,
-    fields: [{ name: "destino", label: "Destino", kind: "text", required: true }],
-    summarize: (p) => `→ ${p.destino}`,
+    fields: [
+      { name: "destino", label: "Destino", kind: "text", required: true },
+      { name: "lote", label: "Lote/Grupo", kind: "text", placeholder: "Ej: Lote A" },
+    ],
+    summarize: (p) => `→ ${p.destino}${p.lote ? ` · Lote ${p.lote}` : ""}`,
   },
   observacion: {
     tipo: "observacion",

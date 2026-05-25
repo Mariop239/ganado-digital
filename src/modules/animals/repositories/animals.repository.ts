@@ -154,3 +154,17 @@ export async function reactivarAnimal(numero: string): Promise<AnimalView> {
   if (error) throw error;
   return toView(data as Animal);
 }
+
+export async function updateUbicacionLote(
+  numero: string,
+  input: { ubicacion_actual: string; lote_actual: string | null },
+): Promise<AnimalView> {
+  const { data, error } = await supabase
+    .from("animals")
+    .update(input)
+    .eq("numero", numero)
+    .select()
+    .single();
+  if (error) throw error;
+  return toView(data as Animal);
+}

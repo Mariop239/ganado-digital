@@ -1,36 +1,78 @@
-# Mejora UX en FormAnimal: categoría auto-derivada
+## Objetivo
 
-Alinear el formulario con la lógica biológica ya existente. Solo cambios locales en `src/modules/animals/components/FormAnimal.tsx` reutilizando `derivarCategoria`, `edadEnMeses` y `CATEGORIAS_ADULTAS` desde `src/modules/animals/utils/categorias.ts`.
+Que un evento de "Traslado" actualice automáticamente `ubicacion_actual` y `lote_actual` del animal, y que la ficha técnica muestre ambos campos de forma prominente.
 
-## Comportamiento
+## Fase A — Esquema y migración
 
-Se observa `sexo` y `fecha_nacimiento` con `form.watch`. Se calcula `meses = edadEnMeses(fecha_nacimiento)` en cada render (función pura, sin `useEffect` salvo el de sincronización del valor).
+1. **Migración SQL (reversible)** sobre `public.animals`:
+  - `ALTER TABLE public.animals ADD COLUMN IF NOT EXISTS ubicacion_actual text;`
+  - `ALTER TABLE public.animals ADD COLUMN IF NOT EXISTS lote_actual text;`
+  - Ambos opcionales (`NULL` permitido), sin default — los animales existentes quedan intactos.
+  - No se tocan triggers de sincronización `vacas` ↔ `animals` (esos campos no existen en `vacas`, así que se ignoran de forma natural).
+2. `**src/modules/animals/types/domain.ts**`: añadir a `Animal`:
+  ```ts
+   ubicacion_actual: string | null;
+   lote_actual: string | null;
+  ```
+3. Regenerar `src/integrations/supabase/types.ts` (lo hace la plataforma tras la migración).
 
-- **Caso A — Joven (`meses != null && meses <= 15`)**: 
-  - Ocultar el selector manual de categoría.
-  - Derivar con `derivarCategoria({ fecha_nacimiento, sexo, categoria: form.getValues("categoria") })` y usar `categoria_view`.
-  - Sincronizar al form vía un único `useEffect` con deps `[sexo, fecha_nacimiento]` que llame `form.setValue("categoria", categoria_view, { shouldDirty: true })` solo si el valor difiere.
-  - Render read-only: `<p className="text-sm text-muted-foreground">Categoría automática: {CATEGORIA_LABELS[derivada]} · Calculada según edad</p>`.
+## Fase B — Captura del lote en el evento Traslado
 
-- **Caso B — Adulto (`meses != null && meses > 15`)**:
-  - Mostrar `<Select>` con opciones filtradas a `adultasPorSexo(sexo)` (ya devuelve `["vaca"]` o `["toro"]`).
-  - Si el valor actual del form no está en esa lista (p.ej. era juvenil), hacer `setValue` al primer adulto válido en el mismo `useEffect`.
+Una sola fuente de verdad: el payload del traslado pasa a tener `destino` + `lote` opcional.
 
-- **Caso C — Sin `fecha_nacimiento`**:
-  - Comportamiento actual: selector manual con `categoriasPorSexo(sexo)`.
+1. `**src/modules/cows/events/schemas/payloads/index.ts**`:
+  ```ts
+   export const trasladoPayloadSchema = z.object({
+     destino: z.string().trim().min(1, "Requerido").max(200),
+     lote: z.string().trim().max(100).optional(),
+   });
+  ```
+2. `**src/modules/cows/events/registry/index.ts**`: añadir field `lote` (text, no required, placeholder "Ej: Lote A").
+  El `summarize` queda `→ ${p.destino}${p.lote ?`  · Lote ${p.lote} `: ""}`.
 
-## Detalles de implementación
+## Fase C — Propagación al animal
 
-- Reemplazar el bloque `<Controller name="categoria">` por una rama condicional según los tres casos.
-- El `useEffect` existente que reajusta categoría al cambiar `sexo` se fusiona con la nueva sincronización para evitar doble lógica.
-- `aplicaEstadoReproductivo(sexo, categoria)` sigue funcionando porque el form siempre tiene una `categoria` válida sincronizada.
-- No tocar `schemas`, `domain.ts`, `repositories`, hooks, `PerfilAnimal`, `ListaAnimales`, ni `constants/categorias.ts`.
+Mantener la lógica en el hook (no en el componente del form, no duplicar):
 
-## Archivos tocados
+1. `**src/modules/animals/repositories/animals.repository.ts**`: añadir helper pequeño
+  ```ts
+   export async function updateUbicacionLote(
+     numero: string,
+     input: { ubicacion_actual: string; lote_actual: string | null },
+   ): Promise<AnimalView>
+  ```
+   (reutiliza `toView`, update directo sobre `animals` filtrando por `numero`).
+2. `**src/modules/cows/events/hooks/useAnimalEvents.ts**` — `useCreateAnimalEvent`:
+  - Tras `createEvent` exitoso, si `input.tipo === "traslado"`, llamar `updateUbicacionLote(vacaNumero, { ubicacion_actual: payload.destino, lote_actual: payload.lote ?? null })`.
+  - Si esa segunda llamada falla, registrar con `console.error` pero no romper la mutation (el evento ya quedó guardado; el usuario puede reintentar). Mostrar toast con warning desde el form si se desea — pero por simplicidad lo dejamos en el hook con `console.error`.
+  - Invalidar también `["animal", vacaNumero]` y `["animals"]` para refrescar la ficha al instante.
+   No se toca `DynamicEventForm.tsx` salvo que el registry ya basta para renderizar el campo `lote`. Cero duplicación de lógica.
 
-- `src/modules/animals/components/FormAnimal.tsx` (único cambio).
+## Fase D — Ficha técnica
 
-## Riesgos / cleanup
+`**src/modules/animals/components/PerfilAnimal.tsx**`: en el `<dl>` de información general, añadir dos filas justo después de "Dueño":
 
-- Edición de un animal adulto persistido con categoría juvenil rara (`novillo` con >15m): el `useEffect` lo reasignaría a `toro` en cuanto el usuario edite. Mitigación: solo reasignar si la categoría actual NO pertenece al conjunto válido del caso vigente; nunca sobrescribir un valor ya válido.
-- No se introduce duplicación: toda la regla biológica vive en `utils/categorias.ts`.
+- "Ubicación actual" → `animal.ubicacion_actual || "Por definir"`
+- "Lote/Grupo" → `animal.lote_actual || "Sin lote"`
+
+Reutiliza el patrón existente (`rows()` array). Sin componentes nuevos, sin badges adicionales — coherente con el resto de la ficha y legible en tablet.
+
+## Riesgos y cleanup
+
+- **Eventos de traslado históricos**: no se retroalimentan (no hay backfill). El campo queda vacío hasta el próximo traslado registrado — comportamiento esperado, reversible.
+- `**AnimalView**` hereda los nuevos campos automáticamente porque extiende `Animal`. No hay que tocar `toView`.
+- Reversible: drop de columnas si se decide revertir; el resto del código tolera `null`.
+- No se crean componentes nuevos, no se duplica UI, no se toca `cows/vacas`.
+
+## Archivos a tocar
+
+- `supabase/migrations/<nueva>.sql` (nueva)
+- `src/modules/animals/types/domain.ts`
+- `src/modules/animals/repositories/animals.repository.ts`
+- `src/modules/cows/events/schemas/payloads/index.ts`
+- `src/modules/cows/events/registry/index.ts`
+- `src/modules/cows/events/hooks/useAnimalEvents.ts`
+- `src/modules/animals/components/PerfilAnimal.tsx`  
+  
+Apruebo el Plan  
+El plan es perfecto y respeta la arquitectura al 100%. Procedamos con la implementación. Ojo nada más con verificar si el nombre exacto de la tabla en Supabase es 'animals' o 'animales' antes de lanzar la migración SQL. ¡Ejecútalo!
