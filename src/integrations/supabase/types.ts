@@ -58,6 +58,87 @@ export type Database = {
           },
         ]
       }
+      animals: {
+        Row: {
+          categoria: string
+          color: string
+          created_at: string
+          dueno: string
+          estado_actual: string
+          estado_reproductivo: string | null
+          father_id: string | null
+          fecha_egreso: string | null
+          fecha_nacimiento: string | null
+          id: string
+          madre_texto: string
+          mother_id: string | null
+          motivo_egreso: string | null
+          nombre: string
+          numero: string
+          padre_texto: string
+          raza: string
+          sexo: string
+          updated_at: string
+        }
+        Insert: {
+          categoria: string
+          color?: string
+          created_at?: string
+          dueno?: string
+          estado_actual?: string
+          estado_reproductivo?: string | null
+          father_id?: string | null
+          fecha_egreso?: string | null
+          fecha_nacimiento?: string | null
+          id?: string
+          madre_texto?: string
+          mother_id?: string | null
+          motivo_egreso?: string | null
+          nombre?: string
+          numero: string
+          padre_texto?: string
+          raza?: string
+          sexo: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          color?: string
+          created_at?: string
+          dueno?: string
+          estado_actual?: string
+          estado_reproductivo?: string | null
+          father_id?: string | null
+          fecha_egreso?: string | null
+          fecha_nacimiento?: string | null
+          id?: string
+          madre_texto?: string
+          mother_id?: string | null
+          motivo_egreso?: string | null
+          nombre?: string
+          numero?: string
+          padre_texto?: string
+          raza?: string
+          sexo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animals_father_id_fkey"
+            columns: ["father_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_mother_id_fkey"
+            columns: ["mother_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       control_vacunas: {
         Row: {
           created_at: string
