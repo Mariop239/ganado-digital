@@ -2,7 +2,6 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Pencil, Trash2, Plus, Baby } from "lucide-react";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -109,13 +108,6 @@ export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
                         onClick={() => setNacimientoDe(r)}
                       >
                         <Baby className="mr-2 h-5 w-5" /> Registrar nacimiento
-                      </Button>
-                    )}
-                    {r.estado_servicio === "parida" && r.cria_animal_id && (
-                      <Button asChild variant="outline" size="sm" className="min-h-10">
-                        <Link to="/animales/$numero" params={{ numero: r.cria_animal_id }}>
-                          Ver cría
-                        </Link>
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setEditing(r)}>
