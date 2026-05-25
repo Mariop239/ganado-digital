@@ -76,6 +76,7 @@ export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
               <TableHead>Tipo</TableHead>
               <TableHead>Toro</TableHead>
               <TableHead>Fecha servicio</TableHead>
+              <TableHead>Confirmación</TableHead>
               <TableHead>Fecha probable parto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -83,17 +84,20 @@ export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
             )}
             {!isLoading && (data?.length ?? 0) === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sin servicios todavía.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Sin servicios todavía.</TableCell></TableRow>
             )}
             {data?.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>{TIPO_LABELS[r.tipo_servicio]}</TableCell>
                 <TableCell>{r.toro || "—"}</TableCell>
                 <TableCell>{fmt(r.fecha_monta)}</TableCell>
-                <TableCell>{fmt(r.fecha_probable_parto)}</TableCell>
+                <TableCell>{fmt(r.fecha_confirmacion)}</TableCell>
+                <TableCell>
+                  {r.estado_servicio === "vacia" ? "—" : fmt(r.fecha_probable_parto)}
+                </TableCell>
                 <TableCell>
                   <Badge variant={ESTADO_VARIANT[r.estado_servicio]}>
                     {ESTADO_LABELS[r.estado_servicio]}
