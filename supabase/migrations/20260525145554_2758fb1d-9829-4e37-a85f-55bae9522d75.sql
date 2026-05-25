@@ -1,0 +1,1 @@
+ALTER TABLE public.historial ADD COLUMN IF NOT EXISTS fecha_confirmacion date NULL;

@@ -1,114 +1,110 @@
-## Mejora de Navegación Bidireccional en Árbol Genealógico
+## Objetivo
 
-Convertir la sección "Padres" del `FamiliaTab` en tarjetas cliqueables (misma UX que "Hijos") y mover la edición de relaciones a un Dialog separado.
-
-### Principios aplicados
-- Dominio `animals` se mantiene como única fuente de verdad.
-- Reutilizamos `SelectorAnimal`, `useUpdateRelaciones`, `Card`, `Dialog`.
-- Sin duplicación visual: lista de Padres usa el mismo patrón visual que lista de Hijos.
-- Cambios estrictamente UI + 1 hook nuevo, sin tocar schemas ni `domain.ts`.
+Separar el momento del **Servicio** del momento de la **Confirmación de Preñez** en el módulo `breeding`, agregando `fecha_confirmacion` y refinando la lógica de estado y FPP. Sin duplicar componentes, manteniendo `animals` como fuente de verdad.
 
 ---
 
-### Fase A — Datos de los padres (mínimo invasivo)
+## Fase A — Base de datos (migración)
 
-**Decisión:** NO hacer join anidado en `getAnimalByNumero`. Razones:
-- `animals.mother_id` / `father_id` no tienen FK declarada en Supabase (ver schema), por lo que la sintaxis `madre:animals!mother_id(...)` no funciona sin agregar la FK, y eso amplía el alcance fuera de UI.
-- Cambiar el tipo `Animal` rompería múltiples consumidores (`FormAnimal`, `ListaAnimales`, `PerfilAnimal`, repos).
+Agregar columna a `historial`:
 
-**En su lugar:** crear un hook ligero `useAnimalById(id)` que reutilice el repo existente, y un `usePadres(animal)` que devuelva `{ madre, padre }` resolviendo cada uno por id. Esto:
-- No toca `domain.ts` ni `Animal`.
-- Reutiliza queries cacheadas por React Query (`["animal-by-id", id]`).
-- Es 100% reversible.
+- `fecha_confirmacion date NULL` (opcional)
 
-Archivos:
-- `src/modules/animals/repositories/animals.repository.ts` — añadir `getAnimalById(id: string)`.
-- `src/modules/animals/hooks/useAnimalById.ts` — nuevo, espejo de `useAnimal` pero por `id`.
-- `src/modules/animals/index.ts` — exportar `useAnimalById`.
+`fecha_monta` se mantiene como `NOT NULL` (es la `fecha_servicio` actual en el código — ver nota de naming abajo).
 
-### Fase B — Tarjetas de Padres cliqueables (solo lectura)
-
-En `FamiliaTab.tsx`, reemplazar la sección "Padres" actual por una lista visual idéntica a "Hijos":
-
-- Una `Card` con título "Padres".
-- Dentro, dos filas (Madre / Padre) usando el mismo patrón `<li>` que ya usa Hijos:
-  - Si existe `mother_id` → resolver con `useAnimalById` y renderizar `<Link to="/animales/$numero" params={{ numero }}>` envolviendo la fila completa (área de toque grande, `min-h-14`).
-  - Si no existe pero hay `madre_texto` → mostrar texto plano con badge "Sin vincular".
-  - Si no hay ninguno → estado vacío "Sin madre registrada".
-- Mismo tratamiento para Padre.
-- Botón secundario en el header de la Card: **"Editar genealogía"** (variant `outline`, icono `Pencil`).
-
-### Fase C — Dialog de edición
-
-Nuevo componente local en el mismo archivo (o `EditarGenealogiaDialog.tsx` si crece):
-
-- `<Dialog>` con título "Editar genealogía".
-- Reutiliza `SelectorAnimal` para Madre (`sexo="hembra"`) y Padre (`sexo="macho"`), ambos con `excludeId={animalId}`.
-- Mantiene los inputs de texto libre `madre_texto` / `padre_texto` (compatibilidad con animales no catalogados — Principio #5).
-- Botones: Cancelar / Guardar (grandes, `min-h-11`).
-- Al guardar: `useUpdateRelaciones.mutateAsync(...)` → toast éxito/error → cerrar dialog.
-- Estado local del form se inicializa desde `animal` al abrir, se descarta al cancelar.
-
-### Fase D — Cleanup
-
-- Eliminar del cuerpo principal de `FamiliaTab` los `SelectorAnimal` y los `<Input>` de texto libre (ahora viven solo dentro del Dialog).
-- Eliminar el botón "Guardar relaciones" antiguo.
+No tocar triggers existentes (`validar_fechas_historial`, etc.). No backfill: las filas viejas quedan con `fecha_confirmacion = NULL`, lo cual es válido.
 
 ---
 
-### Detalles técnicos
+## Fase B — Tipos y schemas
 
-```ts
-// animals.repository.ts
-export async function getAnimalById(id: string): Promise<Animal | null> {
-  const { data, error } = await supabase
-    .from("animals").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return (data as Animal | null) ?? null;
-}
+**`src/modules/breeding/types/domain.ts`**
+- Añadir `fecha_confirmacion: string | null` al tipo `Historial`.
+
+**`src/modules/breeding/schemas/index.ts`** (`servicioSchema`)
+- Añadir `fecha_confirmacion: z.string().optional().nullable().or(z.literal("")).transform(v => v || null)`.
+- Mantener `fecha_monta` obligatoria.
+- Añadir `superRefine`:
+  - Si `fecha_confirmacion` está presente → forzar `estado_servicio = "prenada"`.
+  - Si `estado_servicio = "vacia"` → `fecha_confirmacion` debe ser `null`.
+
+**Nota de naming**: el código actual usa `fecha_monta` para lo que el usuario llama `fecha_servicio`. NO renombramos columna ni campo (rompería tipos generados de Supabase y `vaca_numero`/historial existente). Mantenemos `fecha_monta` internamente; la UI ya muestra el label "Fecha de servicio".
+
+---
+
+## Fase C — Repositorio y hook
+
+**`historial.repository.ts`** — `normalizeServicio`:
+- Incluir `fecha_confirmacion: input.fecha_confirmacion ?? null`.
+- Lógica FPP condicional:
+  ```ts
+  fecha_probable_parto:
+    input.estado_servicio === "vacia"
+      ? null
+      : addDays(input.fecha_monta, 283)
+  ```
+- Garantiza que `null` se envía limpio a Supabase (no string vacío).
+
+**`useHistorial.ts`** — sin cambios estructurales; ya pasa el `ServicioInput` tal cual.
+
+---
+
+## Fase D — UI `FormHistorial.tsx`
+
+1. Nuevo campo `<Input type="date">` para `fecha_confirmacion`, debajo de `fecha_monta` (label: "Fecha de confirmación de preñez").
+2. `watch` sobre `fecha_confirmacion` y `estado_servicio`.
+3. Lógica condicional del selector Estado:
+   - Si `fecha_confirmacion` tiene valor → forzar `setValue("estado_servicio", "prenada")` (en `useEffect`) y renderizar `<Select disabled>`.
+   - Si `fecha_confirmacion` vacía → Select habilitado, opciones limitadas a `["pendiente", "vacia"]` (quitamos `"prenada"` manual; la única vía a "prenada" es ingresar fecha de confirmación).
+4. Si el usuario cambia estado manualmente a `"vacia"` con una `fecha_confirmacion` ya escrita → limpiar `fecha_confirmacion` (`setValue(..., "")`).
+5. FPP visual:
+   - Ocultar el bloque FPP cuando `estado_servicio === "vacia"` (o mostrar texto "No aplica").
+   - Caso contrario: seguir mostrando `addDays(fecha_monta, 283)`.
+
+---
+
+## Fase E — UI `HistorialTabla.tsx`
+
+- Nueva columna **"Confirmación"** entre "Fecha servicio" y "Fecha probable parto", renderiza `fmt(r.fecha_confirmacion)` o `—`.
+- Columna FPP: si `r.estado_servicio === "vacia"` → `"—"`; si no → `fmt(r.fecha_probable_parto)`.
+- Botón **"Registrar nacimiento"**: confirmar que sigue gated por `r.estado_servicio === "prenada"` (ya lo está).
+- Ampliar `colSpan` de filas vacías/loading a 7.
+
+---
+
+## Diagrama de estados (resultante)
+
+```text
+                  ┌─────────────┐
+   crear servicio │  pendiente  │  (sin fecha_confirmacion, sin FPP visible si vacia)
+                  └──────┬──────┘
+                         │
+       ┌─────────────────┼─────────────────┐
+       │                 │                 │
+ingresar fecha_      marcar vacia    (vía nacimiento)
+confirmacion             │                 │
+       │                 │                 │
+       ▼                 ▼                 ▼
+   ┌─────────┐       ┌───────┐         ┌────────┐
+   │ prenada │       │ vacia │         │ parida │
+   │ (lock)  │       │       │         │ (auto) │
+   └─────────┘       └───────┘         └────────┘
 ```
 
-```ts
-// useAnimalById.ts
-export function useAnimalById(id: string | null | undefined) {
-  return useQuery({
-    queryKey: ["animal-by-id", id],
-    queryFn: () => getAnimalById(id as string),
-    enabled: !!id,
-  });
-}
-```
+---
 
-Patrón fila padre (mismo estilo que Hijos):
-```tsx
-<li className="py-2">
-  {padre ? (
-    <Link to="/animales/$numero" params={{ numero: padre.numero }}
-          className="flex items-center justify-between min-h-14 hover:bg-accent/50 rounded-md px-2 -mx-2 transition-colors">
-      <div>
-        <div className="text-xs uppercase text-muted-foreground">Padre</div>
-        <div className="font-medium">#{padre.numero}{padre.nombre ? ` · ${padre.nombre}` : ""}</div>
-        <div className="text-xs text-muted-foreground">{padre.sexo} · {padre.categoria}</div>
-      </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    </Link>
-  ) : (
-    <EstadoVacio label="Padre" textoLibre={animal.padre_texto} />
-  )}
-</li>
-```
+## Archivos a tocar
 
-### Riesgos
-- Ninguno en BD ni tipos: cero migraciones, cero cambios en `domain.ts`.
-- `useAnimalById` dispara 2 fetches extra cuando hay ambos padres vinculados — cacheados por React Query, costo despreciable.
+- migración SQL (nueva)
+- `src/modules/breeding/types/domain.ts`
+- `src/modules/breeding/schemas/index.ts`
+- `src/modules/breeding/repositories/historial.repository.ts`
+- `src/modules/breeding/components/FormHistorial.tsx`
+- `src/modules/breeding/components/HistorialTabla.tsx`
+- `src/integrations/supabase/types.ts` (regenerado tras migración)
 
-### Fuera de alcance
-- Agregar FK real `mother_id/father_id → animals.id` (Principio #7: no sobreingeniería; lo haremos cuando lo justifique un join real).
-- Validar `sexo` del padre/madre seleccionado (ya lo hace `SelectorAnimal` vía filtro `sexo`).
-- Modificar `FormAnimal`, `PerfilAnimal` u otras vistas.
+## Fuera de alcance
 
-### Archivos a tocar
-- `src/modules/animals/repositories/animals.repository.ts` (+1 función)
-- `src/modules/animals/hooks/useAnimalById.ts` (nuevo)
-- `src/modules/animals/index.ts` (+1 export)
-- `src/modules/animals/components/FamiliaTab.tsx` (refactor sección Padres + Dialog)
+- Renombrar `fecha_monta` → `fecha_servicio` en BD (riesgo alto, no aporta valor de dominio inmediato).
+- Cambios en `FormAnimal` o flujo de nacimiento (ya implementado correctamente).
+- Cambios en `useHistorial.ts` (no requiere modificación).
