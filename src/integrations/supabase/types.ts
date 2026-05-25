@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      animal_events: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          is_terminal: boolean
+          observaciones: string | null
+          payload: Json
+          tipo: Database["public"]["Enums"]["animal_event_type"]
+          updated_at: string
+          vaca_numero: string
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          id?: string
+          is_terminal?: boolean
+          observaciones?: string | null
+          payload?: Json
+          tipo: Database["public"]["Enums"]["animal_event_type"]
+          updated_at?: string
+          vaca_numero: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          is_terminal?: boolean
+          observaciones?: string | null
+          payload?: Json
+          tipo?: Database["public"]["Enums"]["animal_event_type"]
+          updated_at?: string
+          vaca_numero?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_events_vaca_numero_fkey"
+            columns: ["vaca_numero"]
+            isOneToOne: false
+            referencedRelation: "vacas"
+            referencedColumns: ["numero"]
+          },
+        ]
+      }
       control_vacunas: {
         Row: {
           created_at: string
@@ -155,7 +199,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      animal_event_type:
+        | "venta"
+        | "fallecimiento"
+        | "traslado"
+        | "observacion"
+        | "tratamiento"
+        | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -282,6 +332,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      animal_event_type: [
+        "venta",
+        "fallecimiento",
+        "traslado",
+        "observacion",
+        "tratamiento",
+        "otro",
+      ],
+    },
   },
 } as const

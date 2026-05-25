@@ -51,6 +51,7 @@ export function useMarcarEgreso(numero: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["vacas"] });
       qc.invalidateQueries({ queryKey: ["vaca", numero] });
+      qc.invalidateQueries({ queryKey: ["animal-events", numero] });
     },
   });
 }
@@ -62,6 +63,7 @@ export function useReactivarVaca(numero: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["vacas"] });
       qc.invalidateQueries({ queryKey: ["vaca", numero] });
+      qc.invalidateQueries({ queryKey: ["animal-events", numero] });
     },
   });
 }
