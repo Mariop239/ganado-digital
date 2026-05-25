@@ -100,6 +100,7 @@ export function FormAnimal({
     if (meses === null && !categoriasDisponibles.includes(categoria)) {
       form.setValue("categoria", categoriasDisponibles[categoriasDisponibles.length - 1]);
     }
+    if (form.formState.isSubmitted) form.trigger("numero");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sexo, fechaNacimiento]);
 
@@ -111,6 +112,9 @@ export function FormAnimal({
   const onSubmit = async (values: AnimalFormInput) => {
     try {
       const parsed = animalSchema.parse(values) as AnimalFormOutput;
+      if (!editing && parsed.sexo === "macho" && !parsed.numero?.trim()) {
+        parsed.numero = `M-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+      }
       if (editing) {
         const { numero: _i, ...rest } = parsed;
         await update.mutateAsync(rest);
@@ -133,8 +137,13 @@ export function FormAnimal({
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="numero" className="text-base">Número (arete) *</Label>
+          <Label htmlFor="numero" className="text-base">
+            Número (arete){sexo === "hembra" ? " *" : ""}
+          </Label>
           <Input id="numero" className="h-12 text-base" disabled={editing || locked("numero")} {...form.register("numero")} />
+          <p className="text-xs text-muted-foreground">
+            Solo es obligatorio para hembras; los machos pueden usar identificación temporal automática.
+          </p>
           {err.numero && <p className="text-sm text-destructive">{err.numero.message as string}</p>}
         </div>
         <div className="space-y-2">
