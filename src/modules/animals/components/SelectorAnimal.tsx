@@ -20,6 +20,7 @@ type Props = {
   sexo?: Sexo;
   excludeId?: string;
   placeholder?: string;
+  disabled?: boolean;
 };
 
 export function SelectorAnimal({
@@ -28,6 +29,7 @@ export function SelectorAnimal({
   sexo,
   excludeId,
   placeholder = "Buscar animal…",
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const { data: animales = [] } = useAnimals(sexo ? { sexo } : {});
@@ -43,6 +45,7 @@ export function SelectorAnimal({
             role="combobox"
             aria-expanded={open}
             className="min-h-11 flex-1 justify-between"
+            disabled={disabled}
           >
             {seleccionado
               ? `#${seleccionado.numero}${seleccionado.nombre ? " · " + seleccionado.nombre : ""}`
@@ -80,7 +83,7 @@ export function SelectorAnimal({
           </Command>
         </PopoverContent>
       </Popover>
-      {value && (
+      {value && !disabled && (
         <Button
           type="button"
           variant="ghost"
