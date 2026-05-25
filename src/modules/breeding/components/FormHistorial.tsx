@@ -1,7 +1,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { servicioSchema } from "../schemas";
-import type { ServicioInput, Historial } from "../types/domain";
+import type { ServicioInput, ServicioFormInput, Historial } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +43,7 @@ function addDays(isoDate: string, days: number): string {
 
 export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
   const editing = !!registro;
-  const form = useForm<ServicioInput>({
+  const form = useForm<ServicioFormInput>({
     resolver: zodResolver(servicioSchema),
     defaultValues: registro
       ? {
@@ -68,13 +68,14 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
   const fechaMonta = form.watch("fecha_monta");
   const fechaProbableParto = addDays(fechaMonta, 283);
 
-  const onSubmit = async (values: ServicioInput) => {
+  const onSubmit = async (values: ServicioFormInput) => {
     try {
+      const parsed = servicioSchema.parse(values);
       if (editing) {
-        await update.mutateAsync({ id: registro!.id, input: values });
+        await update.mutateAsync({ id: registro!.id, input: parsed });
         toast.success("Servicio actualizado");
       } else {
-        await create.mutateAsync(values);
+        await create.mutateAsync(parsed);
         toast.success("Servicio registrado");
       }
       onDone();
@@ -83,7 +84,7 @@ export function FormHistorial({ vacaNumero, registro, onDone }: Props) {
     }
   };
 
-  const err = (k: keyof ServicioInput) =>
+  const err = (k: keyof ServicioFormInput) =>
     form.formState.errors[k] && (
       <p className="text-sm text-destructive">{form.formState.errors[k]?.message as string}</p>
     );

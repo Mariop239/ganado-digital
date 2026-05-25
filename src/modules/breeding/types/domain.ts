@@ -1,4 +1,4 @@
-import type { HistorialInput, ServicioInput } from "../schemas";
+import type { HistorialInput, ServicioInput, ServicioFormInput } from "../schemas";
 
 export type TipoServicio = "monta_natural" | "inseminacion";
 export type EstadoServicio = "pendiente" | "prenada" | "vacia" | "parida";
@@ -20,4 +20,4 @@ export type Historial = {
   updated_at: string;
 };
 
-export type { HistorialInput, ServicioInput };
+export type { HistorialInput, ServicioInput, ServicioFormInput };

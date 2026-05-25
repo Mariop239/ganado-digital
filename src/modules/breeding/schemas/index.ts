@@ -11,7 +11,8 @@ export const servicioSchema = z.object({
   observaciones: z.string().trim().max(1000).default(""),
 });
 
-export type ServicioInput = z.infer<typeof servicioSchema>;
+export type ServicioFormInput = z.input<typeof servicioSchema>;
+export type ServicioInput = z.output<typeof servicioSchema>;
 
 export const historialSchema = z.object({
   fecha_monta: z.string().min(1, "Requerida"),
