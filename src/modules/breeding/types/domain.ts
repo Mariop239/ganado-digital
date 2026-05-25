@@ -11,6 +11,7 @@ export type Historial = {
   tipo_servicio: TipoServicio;
   estado_servicio: EstadoServicio;
   fecha_probable_parto: string | null;
+  fecha_confirmacion: string | null;
   cria_animal_id: string | null;
   fecha_parto: string | null;
   sexo_cria: "Macho" | "Hembra" | null;

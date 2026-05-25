@@ -14,7 +14,9 @@ function normalizeServicio(input: ServicioInput) {
     toro: input.toro ?? "",
     fecha_monta: input.fecha_monta,
     estado_servicio: input.estado_servicio,
-    fecha_probable_parto: addDays(input.fecha_monta, 283),
+    fecha_probable_parto:
+      input.estado_servicio === "vacia" ? null : addDays(input.fecha_monta, 283),
+    fecha_confirmacion: input.fecha_confirmacion ?? null,
     observaciones: input.observaciones || null,
   };
 }

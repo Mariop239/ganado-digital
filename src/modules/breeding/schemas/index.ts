@@ -7,8 +7,28 @@ export const servicioSchema = z.object({
   tipo_servicio: tipoServicioSchema,
   toro: z.string().trim().max(100).default(""),
   fecha_monta: z.string().min(1, "Requerida"),
+  fecha_confirmacion: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
   estado_servicio: estadoServicioSchema.default("pendiente"),
   observaciones: z.string().trim().max(1000).default(""),
+}).superRefine((d, ctx) => {
+  if (d.fecha_confirmacion && d.estado_servicio === "vacia") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["fecha_confirmacion"],
+      message: "Una vaca vacía no puede tener fecha de confirmación",
+    });
+  }
+  if (d.fecha_confirmacion && d.fecha_confirmacion < d.fecha_monta) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["fecha_confirmacion"],
+      message: "Debe ser posterior a la fecha de servicio",
+    });
+  }
 });
 
 export type ServicioFormInput = z.input<typeof servicioSchema>;

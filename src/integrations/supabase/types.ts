@@ -188,6 +188,7 @@ export type Database = {
           created_at: string
           cria_animal_id: string | null
           estado_servicio: string
+          fecha_confirmacion: string | null
           fecha_destete: string | null
           fecha_monta: string
           fecha_parto: string | null
@@ -204,6 +205,7 @@ export type Database = {
           created_at?: string
           cria_animal_id?: string | null
           estado_servicio?: string
+          fecha_confirmacion?: string | null
           fecha_destete?: string | null
           fecha_monta: string
           fecha_parto?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           created_at?: string
           cria_animal_id?: string | null
           estado_servicio?: string
+          fecha_confirmacion?: string | null
           fecha_destete?: string | null
           fecha_monta?: string
           fecha_parto?: string | null
