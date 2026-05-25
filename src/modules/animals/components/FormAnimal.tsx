@@ -18,10 +18,23 @@ import { toast } from "sonner";
 type Props = {
   animal?: Animal;
   onDone: (numero: string) => void;
+  /** Semilla inicial cuando NO se está editando un animal. */
+  defaults?: Partial<AnimalFormInput>;
+  /** Campos a renderizar disabled (precargados y no editables). */
+  lockedFields?: Array<keyof AnimalFormInput>;
+  /** Hook opcional ejecutado tras crear con éxito; recibe el animal creado. */
+  onAfterCreate?: (created: Animal) => void | Promise<void>;
 };
 
-export function FormAnimal({ animal, onDone }: Props) {
+export function FormAnimal({
+  animal,
+  onDone,
+  defaults,
+  lockedFields,
+  onAfterCreate,
+}: Props) {
   const editing = !!animal;
+  const locked = (k: keyof AnimalFormInput) => !!lockedFields?.includes(k);
   const form = useForm<AnimalFormInput>({
     resolver: zodResolver(animalSchema),
     defaultValues: animal
@@ -46,6 +59,7 @@ export function FormAnimal({ animal, onDone }: Props) {
           estado_actual: "activa", estado_reproductivo: null,
           fecha_nacimiento: null, color: "", raza: "", dueno: "",
           mother_id: null, father_id: null, madre_texto: "", padre_texto: "",
+          ...defaults,
         },
   });
   const create = useCreateAnimal();
@@ -80,6 +94,7 @@ export function FormAnimal({ animal, onDone }: Props) {
         onDone(animal!.numero);
       } else {
         const created = await create.mutateAsync(parsed);
+        if (onAfterCreate) await onAfterCreate(created);
         toast.success("Animal añadido");
         onDone(created.numero);
       }
