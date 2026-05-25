@@ -116,15 +116,22 @@ export function ListaAnimales() {
                 <CardContent className="space-y-1 p-4">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-lg font-semibold text-foreground">#{a.numero}</span>
-                    {a.estado_actual !== "activa" && (
-                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                        {ESTADO_ACTUAL_LABELS[a.estado_actual]}
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {a.requiere_clasificacion && (
+                        <span className="rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">
+                          Requiere clasificación
+                        </span>
+                      )}
+                      {a.estado_actual !== "activa" && (
+                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                          {ESTADO_ACTUAL_LABELS[a.estado_actual]}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-base text-foreground">{a.nombre || "Sin nombre"}</div>
                   <div className="text-sm text-muted-foreground">
-                    {SEXO_LABELS[a.sexo]} · {CATEGORIA_LABELS[a.categoria]}
+                    {SEXO_LABELS[a.sexo]} · {CATEGORIA_LABELS[a.categoria_view]}
                     {a.estado_reproductivo ? ` · ${ESTADO_REPRODUCTIVO_LABELS[a.estado_reproductivo]}` : ""}
                   </div>
                 </CardContent>
