@@ -186,36 +186,48 @@ export type Database = {
       historial: {
         Row: {
           created_at: string
+          cria_animal_id: string | null
+          estado_servicio: string
           fecha_destete: string | null
           fecha_monta: string
           fecha_parto: string | null
+          fecha_probable_parto: string | null
           id: string
           observaciones: string | null
           sexo_cria: string | null
+          tipo_servicio: string
           toro: string
           updated_at: string
           vaca_numero: string
         }
         Insert: {
           created_at?: string
+          cria_animal_id?: string | null
+          estado_servicio?: string
           fecha_destete?: string | null
           fecha_monta: string
           fecha_parto?: string | null
+          fecha_probable_parto?: string | null
           id?: string
           observaciones?: string | null
           sexo_cria?: string | null
+          tipo_servicio?: string
           toro?: string
           updated_at?: string
           vaca_numero: string
         }
         Update: {
           created_at?: string
+          cria_animal_id?: string | null
+          estado_servicio?: string
           fecha_destete?: string | null
           fecha_monta?: string
           fecha_parto?: string | null
+          fecha_probable_parto?: string | null
           id?: string
           observaciones?: string | null
           sexo_cria?: string | null
+          tipo_servicio?: string
           toro?: string
           updated_at?: string
           vaca_numero?: string
