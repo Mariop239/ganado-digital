@@ -1,7 +1,9 @@
-export { ListaVacas } from "./components/ListaVacas";
-export { PerfilVaca } from "./components/PerfilVaca";
-export { FormVaca } from "./components/FormVaca";
-export { EgresoDialog } from "./components/EgresoDialog";
+/**
+ * @deprecated Módulo legacy. La UI ahora vive en `@/modules/animals`.
+ * Solo se mantiene como capa interna: repositorio + hooks usados por
+ * `breeding`, `vaccinations` y `events` mientras siguen referenciando
+ * `vaca_numero`.
+ */
 export {
   useVacas,
   useVaca,
