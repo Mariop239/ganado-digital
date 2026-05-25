@@ -26,6 +26,16 @@ export async function getAnimalByNumero(numero: string): Promise<Animal | null> 
   return (data as Animal | null) ?? null;
 }
 
+export async function getAnimalById(id: string): Promise<Animal | null> {
+  const { data, error } = await supabase
+    .from("animals")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Animal | null) ?? null;
+}
+
 export async function listHijos(animalId: string): Promise<Animal[]> {
   const { data, error } = await supabase
     .from("animals")
