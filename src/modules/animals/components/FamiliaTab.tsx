@@ -134,17 +134,11 @@ function FamiliaEditor({ animalId, numero }: { animalId: string; numero: string 
                       {h.sexo} · {h.categoria}
                     </div>
                   </div>
-                  {h.sexo === "hembra" ? (
-                    <Button asChild variant="ghost" size="sm" className="min-h-10">
-                      <Link to="/vacas/$numero" params={{ numero: h.numero }}>
-                        Ver
-                      </Link>
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      (sin perfil aún)
-                    </span>
-                  )}
+                  <Button asChild variant="ghost" size="sm" className="min-h-10">
+                    <Link to="/animales/$numero" params={{ numero: h.numero }}>
+                      Ver
+                    </Link>
+                  </Button>
                 </li>
               ))}
             </ul>
