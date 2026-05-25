@@ -1,13 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Historial, HistorialInput } from "../types/domain";
+import type { Historial, ServicioInput } from "../types/domain";
 
-function normalize(input: HistorialInput) {
+// Gestación bovina ≈ 283 días.
+function addDays(isoDate: string, days: number): string {
+  const d = new Date(isoDate + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizeServicio(input: ServicioInput) {
   return {
-    fecha_monta: input.fecha_monta,
+    tipo_servicio: input.tipo_servicio,
     toro: input.toro ?? "",
-    fecha_parto: input.fecha_parto || null,
-    sexo_cria: (input.sexo_cria as "Macho" | "Hembra") || null,
-    fecha_destete: input.fecha_destete || null,
+    fecha_monta: input.fecha_monta,
+    estado_servicio: input.estado_servicio,
+    fecha_probable_parto: addDays(input.fecha_monta, 283),
     observaciones: input.observaciones || null,
   };
 }
@@ -22,20 +29,45 @@ export async function listHistorial(vacaNumero: string): Promise<Historial[]> {
   return (data ?? []) as Historial[];
 }
 
-export async function createHistorial(vacaNumero: string, input: HistorialInput): Promise<Historial> {
+export async function createServicio(
+  vacaNumero: string,
+  input: ServicioInput,
+): Promise<Historial> {
   const { data, error } = await supabase
     .from("historial")
-    .insert({ vaca_numero: vacaNumero, ...normalize(input) })
+    .insert({ vaca_numero: vacaNumero, ...normalizeServicio(input) })
     .select()
     .single();
   if (error) throw error;
   return data as Historial;
 }
 
-export async function updateHistorial(id: string, input: HistorialInput): Promise<Historial> {
+export async function updateServicio(id: string, input: ServicioInput): Promise<Historial> {
   const { data, error } = await supabase
     .from("historial")
-    .update(normalize(input))
+    .update(normalizeServicio(input))
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Historial;
+}
+
+export type MarcarParidaInput = {
+  fecha_parto: string;
+  sexo_cria: "Macho" | "Hembra";
+  cria_animal_id: string;
+};
+
+export async function marcarParida(id: string, input: MarcarParidaInput): Promise<Historial> {
+  const { data, error } = await supabase
+    .from("historial")
+    .update({
+      estado_servicio: "parida",
+      fecha_parto: input.fecha_parto,
+      sexo_cria: input.sexo_cria,
+      cria_animal_id: input.cria_animal_id,
+    })
     .eq("id", id)
     .select()
     .single();
