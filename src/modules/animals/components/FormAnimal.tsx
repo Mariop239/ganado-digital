@@ -110,7 +110,7 @@ export function FormAnimal({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="numero" className="text-base">Número (arete) *</Label>
-          <Input id="numero" className="h-12 text-base" disabled={editing} {...form.register("numero")} />
+          <Input id="numero" className="h-12 text-base" disabled={editing || locked("numero")} {...form.register("numero")} />
           {err.numero && <p className="text-sm text-destructive">{err.numero.message as string}</p>}
         </div>
         <div className="space-y-2">
@@ -124,7 +124,7 @@ export function FormAnimal({
           render={({ field }) => (
             <div className="space-y-2">
               <Label className="text-base">Sexo *</Label>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value} onValueChange={field.onChange} disabled={locked("sexo")}>
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(["hembra", "macho"] as const).map((s) => (
@@ -201,6 +201,7 @@ export function FormAnimal({
           <Label htmlFor="fecha_nacimiento" className="text-base">Fecha de nacimiento</Label>
           <Input
             id="fecha_nacimiento" type="date" className="h-12 text-base"
+            disabled={locked("fecha_nacimiento")}
             {...form.register("fecha_nacimiento", {
               setValueAs: (v) => (v === "" ? null : v),
             })}
@@ -233,10 +234,11 @@ export function FormAnimal({
                 sexo="hembra"
                 excludeId={animal?.id}
                 placeholder="Seleccionar madre…"
+                disabled={locked("mother_id")}
               />
             )}
           />
-          <Input placeholder="o texto libre" className="min-h-11" {...form.register("madre_texto")} />
+          <Input placeholder="o texto libre" className="min-h-11" disabled={locked("madre_texto")} {...form.register("madre_texto")} />
         </div>
         <div className="space-y-2">
           <Label className="text-base">Padre (del catálogo)</Label>
@@ -250,10 +252,11 @@ export function FormAnimal({
                 sexo="macho"
                 excludeId={animal?.id}
                 placeholder="Seleccionar padre…"
+                disabled={locked("father_id")}
               />
             )}
           />
-          <Input placeholder="o texto libre" className="min-h-11" {...form.register("padre_texto")} />
+          <Input placeholder="o texto libre" className="min-h-11" disabled={locked("padre_texto")} {...form.register("padre_texto")} />
         </div>
       </div>
 
