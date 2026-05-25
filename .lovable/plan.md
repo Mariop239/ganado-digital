@@ -1,116 +1,135 @@
-# Consolidación del dominio `animals` como experiencia principal
 
-## Estado actual (híbrido)
+# Refactor Breeding — Servicio reproductivo + Nacimiento (sin duplicación)
 
-- `/` renderiza `ListaVacas` → filtra hembras y `fecha_egreso`. Machos invisibles.
-- Perfil principal `/vacas/$numero` → `PerfilVaca` (módulo `cows`).
-- Creación: `FormVaca` solo edita campos legacy, sin `sexo`/`categoria`/`estado_*`/IDs de padres.
-- `EgresoDialog` (cows) escribe `animal_events` pero la UX y copy son "vaca".
-- `FamiliaTab` ya existe pero está como pestaña anexa y sus links de hijos van a `/vacas/$numero` (rompe para machos).
-- Triggers BD sincronizan `vacas ↔ animals` en ambos sentidos → datos OK, pero **frontend con dos fuentes de verdad**.
+## Diagnóstico (Domain First)
 
-## Diagnóstico
+`FormHistorial` actual mezcla dos eventos del dominio ganadero: el **servicio** (monta/IA, ocurre hoy) y el **parto/cría** (ocurre ~283 días después). Pedir sexo/fecha de cría al registrar la monta es inventar datos inexistentes y viola Principios #2 (Domain First), #3 (animal es entidad estable) y #10 (eventos como historial).
 
-La UI sigue pensando en "vacas paridas". `animals` aparece solo como anexo. Hay que invertir: `animals` pasa a ser la UI primaria; `cows` queda como repo interno + alias de ruta.
+Solución: `historial` deja de cargar datos de la cría. La cría nace como un `Animal` real usando el `FormAnimal` que ya existe — sin duplicar UI (Principio #1, #14).
 
-## Estrategia
+## Cambios de dominio (Supabase)
 
-1. **UI única basada en `animals`**.
-2. **Compatibilidad legacy solo en datos** (vista `vacas` + triggers intactos).
-3. **Cleanup gradual sin breaking**: `/vacas/*` redirige a `/animales/*`.
+Migración aditiva a `historial`:
 
-## Cambios concretos
+- `tipo_servicio` TEXT NOT NULL DEFAULT `'monta_natural'`, CHECK `IN ('monta_natural','inseminacion')`.
+- `estado_servicio` TEXT NOT NULL DEFAULT `'pendiente'`, CHECK `IN ('pendiente','prenada','vacia','parida')`.
+- `fecha_probable_parto` DATE (calculada `fecha_monta + 283` y persistida al guardar).
+- `cria_animal_id` UUID NULL — soft-link al `animals.id` creado al registrar el nacimiento (sin FK dura para no acoplar al ciclo de vida de animals).
+- Backfill: `tipo_servicio='monta_natural'`; si `fecha_parto IS NOT NULL` → `estado_servicio='parida'`, sino `'pendiente'`; `fecha_probable_parto = fecha_monta + 283`.
+- Se conservan `fecha_parto`, `sexo_cria`, `fecha_destete` como compatibilidad legacy interna; ya no se editan en el form de servicio. `marcarParida` los rellena automáticamente desde el animal cría creado.
 
-### 1. Completar `modules/animals`
+Trigger `validar_fechas_historial` ya valida coherencia de fechas — sin cambios.
 
-- **`schemas/index.ts`**: añadir `animalSchema` con todos los campos + `superRefine` para:
-  - `sexo = "macho"` ⇒ `estado_reproductivo` forzado a `null` (reset implícito, no error).
-  - **Validación cruzada `sexo ↔ categoria`**:
-    - `hembra` ⇒ `categoria ∈ {ternera, novilla, vaca}`.
-    - `macho` ⇒ `categoria ∈ {ternero, toro, novillo}`.
-    - Combinaciones inválidas devuelven error en `categoria`.
-  - `estado_reproductivo` solo permitido si `sexo=hembra` y `categoria ∈ {novilla, vaca}`.
-- **`repositories/animals.repository.ts`**: añadir `createAnimal`, `updateAnimal`, `deleteAnimal`, `marcarEgreso(numero, {fecha, motivo, tipo})` (inserta `animal_events`), `reactivarAnimal`.
-- **`hooks/useAnimals.ts`**: añadir `useCreateAnimal`, `useUpdateAnimal`, `useMarcarEgresoAnimal`, `useReactivarAnimal`, `useDeleteAnimal`. Invalidar `["animals"]`, `["animal", numero]`, `["animal-events", numero]`, y también `["vacas"]`/`["vaca", numero]` durante la transición.
-- **`components/FormAnimal.tsx`**: única fuente de verdad para crear/editar.
-  - Al cambiar `sexo` a `macho`: limpia `estado_reproductivo` en el form state.
-  - Opciones de `categoria` filtradas dinámicamente según `sexo` seleccionado.
-  - `estado_reproductivo` solo visible si hembra adulta.
-  - `mother_id` selector filtrado `sexo=hembra`; `father_id` filtrado `sexo=macho`; fallback texto libre.
-- **`components/ListaAnimales.tsx`**: reemplaza `ListaVacas`. Filtros: búsqueda, `sexo`, `categoria`, `estado_actual` (default `activa`). Link a `/animales/$numero`.
-- **`components/PerfilAnimal.tsx`**: reemplaza `PerfilVaca`. Badges (`sexo`, `categoria`, `estado_reproductivo`, `estado_actual`). Tabs: Reproducción (solo hembra adulta), Vacunas, Eventos, Familia.
-- **`components/EstadoAnimalDialog.tsx`** *(renombrado desde EgresoDialogAnimal)*: maneja el cambio de `estado_actual` (egreso por venta, fallecimiento, etc.). Usa `useMarcarEgresoAnimal` internamente; copy genérico ("Cambiar estado del animal"). Mantiene UX similar al `EgresoDialog` legacy.
+## Tipos y schemas
 
-### 2. Rutas
+**`src/modules/breeding/types/domain.ts`**
+- Añade `TipoServicio = 'monta_natural' | 'inseminacion'` y `EstadoServicio = 'pendiente' | 'prenada' | 'vacia' | 'parida'`.
+- `Historial` incorpora `tipo_servicio`, `estado_servicio`, `fecha_probable_parto`, `cria_animal_id`.
 
-- Crear `src/routes/_authenticated/animales.index.tsx` → `ListaAnimales`.
-- Crear `src/routes/_authenticated/animales.$numero.tsx` → `PerfilAnimal`.
-- `src/routes/_authenticated/index.tsx` → renderizar `ListaAnimales`.
-- `src/routes/_authenticated/vacas.$numero.tsx` → redirect interno a `/animales/$numero` (`beforeLoad` con `throw redirect`).
+**`src/modules/breeding/schemas/index.ts`**
+- Nuevo `servicioSchema` (lo que valida el form): `tipo_servicio`, `toro`, `fecha_monta`, `estado_servicio`, `observaciones?`. Sin `fecha_parto/sexo_cria/fecha_destete`.
+- `historialSchema` legacy se mantiene sólo para tipados internos del repo durante la transición; deja de ser usado por el form (Principio #12: cleanup en cuanto no haya consumidor).
 
-### 3. `modules/cows` → capa interna
+**`src/modules/animals/types/domain.ts`** y **`schemas/index.ts`** — sin cambios. No necesitan saber del módulo breeding (Principio: no romper arquitectura modular).
 
-- **Mantener**: `vacas.repository.ts`, tipos, hooks (`breeding`/`vaccinations`/`events` aún usan `vaca_numero`).
-- **Quitar de exports**: `ListaVacas`, `PerfilVaca`, `FormVaca`, `EgresoDialog`.
-- **Borrar archivos UI** tras verificar que no quedan imports (Fase C).
-- Marcar el módulo `@deprecated — internal repo only`.
+## Repositorio + hooks
 
-### 4. Subcomponentes compartidos
+**`historial.repository.ts`**
+- `createServicio(vacaNumero, ServicioInput)`: calcula `fecha_probable_parto` en cliente y persiste.
+- `updateServicio(id, ServicioInput)`: ídem.
+- `marcarParida(id, { fecha_parto, sexo_cria, cria_animal_id })`: actualiza `estado_servicio='parida'` + campos legacy en un solo update.
+- `listHistorial` sin cambios.
+- Se eliminan `createHistorial`/`updateHistorial` cuando ningún consumidor los use (Principio #12).
 
-`HistorialTabla`, `VacunasTablaVaca`, `EventTimeline`, `EventDialog` siguen recibiendo `vacaNumero` (drop-in: `animal.numero === vaca.numero`). Rename léxico queda fuera de scope.
+**`useHistorial.ts`**: añade `useCreateServicio`, `useUpdateServicio`, `useMarcarParida` invalidando `["historial", vacaNumero]`. Hooks viejos eliminados al cerrar la transición.
 
-### 5. `FamiliaTab`
+## Frontend
 
-- Links de hijos cambian a `/animales/$numero` (funciona para ambos sexos).
-- Se elimina del wrapper de `PerfilVaca` (que desaparece) y vive solo en `PerfilAnimal`.
+### `FormHistorial.tsx` (reescrito)
 
-### 6. Navegación
+Form ÚNICAMENTE de servicio reproductivo, botones grandes (`h-12`, `text-base`), toasts:
+- Select **Tipo de Servicio** — Monta Natural / Inseminación Artificial.
+- Input **Toro / Pajuela** (texto libre — selector de toros del catálogo queda fuera de scope, Principio #7).
+- Date **Fecha de Servicio**.
+- Date read-only **Fecha probable de parto** (auto = servicio + 283d, recalculado en `watch`).
+- Select **Estado** — Pendiente Diagnóstico / Confirmado Preñada / Vacía. (No exponemos `'parida'`: lo asigna el sistema al registrar nacimiento.)
+- Textarea Observaciones.
 
-- `AppSidebar`: si menciona "Vacas", renombrar a "Animales", apuntar a `/`.
-- Cualquier `<Link to="/vacas/$numero">` restante → `/animales/$numero`.
+### `HistorialTabla.tsx`
 
-## Fases (cada commit verde)
+Columnas: **Tipo · Toro · Fecha Servicio · Fecha Probable Parto · Estado · Acciones**.
 
-```text
-Fase A — Módulo animals completo, sin tocar UI legacy
-  - schemas + superRefine (sexo↔categoria, reset estado_reproductivo)
-  - repository extendido + hooks de mutación
-  - FormAnimal, ListaAnimales, PerfilAnimal, EstadoAnimalDialog
-  - Rutas /animales/* nuevas
-  - FamiliaTab: links a /animales/$numero
-  → /vacas sigue intacto
+- Badge de color por `estado_servicio`.
+- Si `estado_servicio === 'prenada'`: botón **"Registrar Nacimiento"** (verde, ícono `Baby` lucide, `size="lg"`, `min-h-12`) junto a editar/eliminar.
+- Si `estado_servicio === 'parida'`: badge "Parida" con link al perfil `/animales/{numero}` resuelto vía `cria_animal_id`.
 
-Fase B — Switch del flujo principal
-  - / renderiza ListaAnimales
-  - /vacas/$numero → redirect a /animales/$numero
-  - Sidebar/nav: "Animales"
+### Flujo de "Registrar Nacimiento" — SIN wrapper, SIN duplicar form
 
-Fase C — Cleanup UI legacy
-  - Borrar ListaVacas, PerfilVaca, FormVaca, EgresoDialog
-  - Limpiar exports de modules/cows/index.ts
-```
+Reutilizamos directamente `FormAnimal` con dos extensiones mínimas y aditivas:
+
+1. **`FormAnimal` recibe dos props opcionales nuevas**:
+   - `defaults?: Partial<AnimalFormInput>` — semilla inicial cuando no hay `animal` en edición.
+   - `lockedFields?: Array<keyof AnimalFormInput>` — campos renderizados `disabled` (madre, padre, etc.). Cambio interno: si el campo está bloqueado, el `Input`/`Selector` recibe `disabled`. Sin lógica condicional adicional fuera de eso (Principio #14: no wrappers).
+   - `onAfterCreate?: (created: Animal) => void | Promise<void>` — hook opcional para que el llamador haga post-procesamiento (en nuestro caso: `marcarParida`). NO se introduce un componente intermedio.
+
+2. **`HistorialTabla` abre el `Dialog` existente con `FormAnimal` directamente** (mismo patrón que ya usa `ListaAnimales` para crear un animal):
+   ```tsx
+   <Dialog open={openNacimiento} onOpenChange={setOpenNacimiento}>
+     <DialogContent className="max-w-3xl">
+       <DialogHeader><DialogTitle>Registrar nacimiento</DialogTitle></DialogHeader>
+       <FormAnimal
+         defaults={{
+           mother_id: madreAnimalId,          // resuelto vía useAnimal(vacaNumero)
+           padre_texto: registro.toro,
+           fecha_nacimiento: new Date().toISOString().slice(0,10),
+           sexo: "hembra",
+         }}
+         lockedFields={["mother_id", "padre_texto"]}
+         onDone={() => setOpenNacimiento(false)}
+         onAfterCreate={(created) =>
+           marcarParida.mutateAsync({
+             id: registro.id,
+             fecha_parto: created.fecha_nacimiento!,
+             sexo_cria: created.sexo === "macho" ? "Macho" : "Hembra",
+             cria_animal_id: created.id,
+           })
+         }
+       />
+     </DialogContent>
+   </Dialog>
+   ```
+
+3. El `mother_id` se resuelve con `useAnimal(vacaNumero)` (hook ya existente) y el `vacaNumero` viene del contexto del perfil donde se renderiza `HistorialTabla`.
+
+Esto cumple el requisito explícito del usuario: **no se crea un nuevo formulario de nacimiento**. Se reutiliza `FormAnimal`, se invoca desde su Dialog y los campos llegan precargados+bloqueados.
+
+## Cleanup obligatorio (Principio #12)
+
+En esta misma fase:
+- Eliminar de `FormHistorial` los inputs de parto/destete/sexo cría.
+- Eliminar `createHistorial`/`updateHistorial` del repo si no quedan consumidores.
+- Borrar exports legacy de `breeding/index.ts` no usados.
 
 ## Fuera de scope
 
-- Genealogía multinivel, árboles, RPC recursivas.
-- Rename `vaca_numero → animal_numero` en tablas hijas.
-- Borrar tabla/vista `vacas` o triggers.
-- Reescribir `breeding`/`vaccinations`/`events`.
-- Nuevos triggers o automatizaciones de `categoria`.
-- Wrappers `cows → animals`.
-- Migraciones de BD.
+- Selector real de toros desde catálogo (Principio #7 — primero validar uso real).
+- Renombrar tabla `historial` → `servicios` (Principio #6 — cambio reversible primero).
+- Modificaciones a `animals/schemas/index.ts` o al dominio de `animals` — el flujo de nacimiento es un caso de uso, no un cambio de dominio.
+- Eventos en `animal_events` para diagnóstico de gestación (futuro).
 
-## Riesgos y mitigación
+## Riesgos y mitigaciones
 
-- **Cache desincronizado** BD ↔ React Query: invalidar ambas keys en mutaciones de `animals`.
-- **Machos creados desde FormAnimal no aparecen en vista `vacas`**: esperado y correcto.
-- **Egreso desde animals**: insert en `animal_events` con `vaca_numero=animal.numero` dispara el trigger `sync_vaca_estado` y luego `sync_vacas_to_animals` actualiza `animals.estado_actual`/`fecha_egreso`.
-- **Bookmarks `/vacas/123`**: preservados vía redirect.
+- **Tipos de Supabase regenerados**: tras la migración, `types.ts` ya incluye los nuevos campos y `types/domain.ts` los alinea. Build TS verifica.
+- **`FormAnimal` con props nuevas**: estrictamente opcionales y aditivas; los llamadores actuales no se ven afectados.
+- **`cria_animal_id` sin FK**: intencional para no bloquear borrados; se trata como soft-link (la UI tolera que el animal cría haya sido borrado).
+- **Doble fuente de verdad madre/padre**: la madre se infiere del contexto (perfil de la vaca); padre queda como `padre_texto` hasta que exista selector real.
 
-## Cómo se evita deuda futura
+## Orden de implementación
 
-- Una sola UI (`PerfilAnimal`); archivos legacy borrados eliminan la tentación de bifurcar.
-- `modules/cows` queda explícitamente `@deprecated — internal`.
-- Próxima fase natural (no aquí): renombrar `vaca_numero → animal_numero` y reemplazar la vista `vacas` por queries directas en módulos hijos.
-
-Esperando aprobación para implementar Fase A.
+1. Migración SQL (`historial` + backfill).
+2. `types/domain.ts` + `schemas/index.ts` del módulo breeding.
+3. Repo + hooks (`createServicio`, `updateServicio`, `marcarParida`).
+4. `FormHistorial.tsx` reescrito (solo servicio).
+5. `FormAnimal.tsx`: añadir props `defaults`, `lockedFields`, `onAfterCreate`.
+6. `HistorialTabla.tsx`: nuevas columnas + botón + Dialog que invoca `FormAnimal` directo.
+7. Cleanup de imports/exports legacy.
