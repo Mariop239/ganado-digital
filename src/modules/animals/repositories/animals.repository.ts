@@ -4,6 +4,7 @@ import type {
   AnimalFiltros,
   AnimalRelacionInput,
   AnimalView,
+  EstadoReproductivo,
 } from "../types/domain";
 import type { AnimalFormOutput } from "../schemas";
 import { derivarCategoria } from "../utils/categorias";
@@ -162,6 +163,34 @@ export async function updateUbicacionLote(
   const { data, error } = await supabase
     .from("animals")
     .update(input)
+    .eq("numero", numero)
+    .select()
+    .single();
+  if (error) throw error;
+  return toView(data as Animal);
+}
+
+/**
+ * Actualiza `estado_reproductivo` solo si el animal es hembra adulta
+ * (categoría persistida `novilla` o `vaca`). Si no aplica, devuelve null.
+ */
+export async function updateEstadoReproductivo(
+  numero: string,
+  estado: EstadoReproductivo,
+): Promise<AnimalView | null> {
+  const { data: current, error: selErr } = await supabase
+    .from("animals")
+    .select("sexo, categoria")
+    .eq("numero", numero)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (!current) return null;
+  if (current.sexo !== "hembra") return null;
+  if (current.categoria !== "novilla" && current.categoria !== "vaca") return null;
+
+  const { data, error } = await supabase
+    .from("animals")
+    .update({ estado_reproductivo: estado })
     .eq("numero", numero)
     .select()
     .single();
