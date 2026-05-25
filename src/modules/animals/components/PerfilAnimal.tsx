@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormAnimal } from "./FormAnimal";
 import { EstadoAnimalDialog } from "./EstadoAnimalDialog";
 import { FamiliaTab } from "./FamiliaTab";
+import { ClasificacionAdultaDialog } from "./ClasificacionAdultaDialog";
 import { useReactivarAnimal } from "../hooks/useAnimals";
-import type { Animal } from "../types/domain";
+import type { AnimalView } from "../types/domain";
 import { CATEGORIA_LABELS, SEXO_LABELS, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import { HistorialTabla } from "@/modules/breeding";
@@ -24,19 +25,25 @@ import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
 
-const rows = (a: Animal): Array<[string, string]> => [
+const rows = (a: AnimalView): Array<[string, string]> => [
   ["Número", a.numero],
   ["Nombre", a.nombre || "—"],
   ["Sexo", SEXO_LABELS[a.sexo]],
-  ["Categoría", CATEGORIA_LABELS[a.categoria]],
+  [
+    "Categoría",
+    a.calculada
+      ? `${CATEGORIA_LABELS[a.categoria_view]} (calculada por edad)`
+      : CATEGORIA_LABELS[a.categoria_view],
+  ],
   ["Fecha de nacimiento", fmt(a.fecha_nacimiento)],
   ["Dueño", a.dueno || "—"],
   ["Color", a.color || "—"],
   ["Raza", a.raza || "—"],
 ];
 
-export function PerfilAnimal({ animal }: { animal: Animal }) {
+export function PerfilAnimal({ animal }: { animal: AnimalView }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [clasifOpen, setClasifOpen] = useState(false);
   const reactivar = useReactivarAnimal(animal.numero);
   const egresada = animal.estado_actual !== "activa";
   const esHembraAdulta = aplicaEstadoReproductivo(animal.sexo, animal.categoria);
@@ -56,7 +63,17 @@ export function PerfilAnimal({ animal }: { animal: Animal }) {
               {animal.nombre || `Animal #${animal.numero}`}
             </CardTitle>
             <Badge variant="secondary">{SEXO_LABELS[animal.sexo]}</Badge>
-            <Badge variant="outline">{CATEGORIA_LABELS[animal.categoria]}</Badge>
+            {animal.requiere_clasificacion ? (
+              <Badge
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={() => setClasifOpen(true)}
+              >
+                Requiere clasificación adulta
+              </Badge>
+            ) : (
+              <Badge variant="outline">{CATEGORIA_LABELS[animal.categoria_view]}</Badge>
+            )}
             {animal.estado_reproductivo && (
               <Badge variant="outline">{ESTADO_REPRODUCTIVO_LABELS[animal.estado_reproductivo]}</Badge>
             )}
@@ -138,6 +155,12 @@ export function PerfilAnimal({ animal }: { animal: Animal }) {
           <FormAnimal animal={animal} onDone={() => setEditOpen(false)} />
         </DialogContent>
       </Dialog>
+
+      <ClasificacionAdultaDialog
+        open={clasifOpen}
+        onOpenChange={setClasifOpen}
+        animal={animal}
+      />
     </div>
   );
 }
