@@ -35,7 +35,7 @@ export const CATEGORIAS_ADULTAS_HEMBRA = ["novilla", "vaca"] as const;
 
 export const animalSchema = z
   .object({
-    numero: z.string().trim().min(1, "Requerido").max(50),
+    numero: z.string().trim().max(50).default(""),
     nombre: z.string().trim().max(100).default(""),
     sexo: sexoSchema,
     categoria: categoriaSchema,
@@ -51,6 +51,14 @@ export const animalSchema = z
     padre_texto: z.string().trim().max(120).default(""),
   })
   .superRefine((data, ctx) => {
+    // Número obligatorio solo para hembras (machos pueden autogenerar identificador temporal)
+    if (data.sexo === "hembra" && !data.numero?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["numero"],
+        message: "El número de arete es obligatorio para hembras",
+      });
+    }
     // Validación cruzada sexo ↔ categoría
     if (data.sexo === "hembra" && !CATEGORIAS_HEMBRA.includes(data.categoria as typeof CATEGORIAS_HEMBRA[number])) {
       ctx.addIssue({
