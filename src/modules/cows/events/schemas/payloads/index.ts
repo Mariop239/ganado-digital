@@ -12,6 +12,7 @@ export const fallecimientoPayloadSchema = z.object({
 
 export const trasladoPayloadSchema = z.object({
   destino: z.string().trim().min(1, "Requerido").max(200),
+  lote: z.string().trim().max(100).optional(),
 });
 
 export const observacionPayloadSchema = z.object({

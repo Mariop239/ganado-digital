@@ -37,6 +37,8 @@ const rows = (a: AnimalView): Array<[string, string]> => [
   ],
   ["Fecha de nacimiento", fmt(a.fecha_nacimiento)],
   ["Dueño", a.dueno || "—"],
+  ["Ubicación actual", a.ubicacion_actual || "Por definir"],
+  ["Lote/Grupo", a.lote_actual || "Sin lote"],
   ["Color", a.color || "—"],
   ["Raza", a.raza || "—"],
 ];
