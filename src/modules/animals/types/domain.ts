@@ -50,3 +50,13 @@ export type AnimalFiltros = {
   categoria?: Categoria;
   estado_actual?: EstadoActual;
 };
+
+/**
+ * Vista derivada para la UI. `categoria` permanece intacto (valor real persistido).
+ * Solo la UI lee `categoria_view`; formularios, mutaciones y repos siguen usando `categoria`.
+ */
+export type AnimalView = Animal & {
+  categoria_view: Categoria;
+  requiere_clasificacion: boolean;
+  calculada: boolean;
+};
