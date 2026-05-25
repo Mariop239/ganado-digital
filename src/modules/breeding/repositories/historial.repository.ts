@@ -1,5 +1,27 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Historial, ServicioInput } from "../types/domain";
+import { updateEstadoReproductivo } from "@/modules/animals/repositories/animals.repository";
+import type { EstadoReproductivo } from "@/modules/animals/types/domain";
+import type { EstadoServicio } from "../types/domain";
+
+function mapEstadoServicio(estado: EstadoServicio): EstadoReproductivo | null {
+  switch (estado) {
+    case "prenada": return "gestante";
+    case "vacia": return "soltera";
+    case "parida": return "parida";
+    default: return null;
+  }
+}
+
+async function syncEstadoAnimal(vacaNumero: string, estado: EstadoServicio) {
+  const mapped = mapEstadoServicio(estado);
+  if (!mapped) return;
+  try {
+    await updateEstadoReproductivo(vacaNumero, mapped);
+  } catch (e) {
+    console.error("syncEstadoAnimal failed", e);
+  }
+}
 
 // Gestación bovina ≈ 283 días.
 function addDays(isoDate: string, days: number): string {
@@ -41,6 +63,7 @@ export async function createServicio(
     .select()
     .single();
   if (error) throw error;
+  await syncEstadoAnimal(vacaNumero, input.estado_servicio);
   return data as Historial;
 }
 
@@ -52,7 +75,9 @@ export async function updateServicio(id: string, input: ServicioInput): Promise<
     .select()
     .single();
   if (error) throw error;
-  return data as Historial;
+  const row = data as Historial;
+  await syncEstadoAnimal(row.vaca_numero, input.estado_servicio);
+  return row;
 }
 
 export type MarcarParidaInput = {
@@ -74,7 +99,9 @@ export async function marcarParida(id: string, input: MarcarParidaInput): Promis
     .select()
     .single();
   if (error) throw error;
-  return data as Historial;
+  const row = data as Historial;
+  await syncEstadoAnimal(row.vaca_numero, "parida");
+  return row;
 }
 
 export async function deleteHistorial(id: string): Promise<void> {
