@@ -3,53 +3,65 @@ import type {
   Animal,
   AnimalFiltros,
   AnimalRelacionInput,
+  AnimalView,
 } from "../types/domain";
 import type { AnimalFormOutput } from "../schemas";
+import { derivarCategoria } from "../utils/categorias";
 
-export async function listAnimals(filtros: AnimalFiltros = {}): Promise<Animal[]> {
+function toView(row: Animal): AnimalView {
+  const d = derivarCategoria({
+    fecha_nacimiento: row.fecha_nacimiento,
+    sexo: row.sexo,
+    categoria: row.categoria,
+  });
+  // Importante: NO mutamos `row`. NO reasignamos `categoria`.
+  return { ...row, ...d };
+}
+
+export async function listAnimals(filtros: AnimalFiltros = {}): Promise<AnimalView[]> {
   let q = supabase.from("animals").select("*").order("numero", { ascending: true });
   if (filtros.sexo) q = q.eq("sexo", filtros.sexo);
   if (filtros.categoria) q = q.eq("categoria", filtros.categoria);
   if (filtros.estado_actual) q = q.eq("estado_actual", filtros.estado_actual);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as Animal[];
+  return ((data ?? []) as Animal[]).map(toView);
 }
 
-export async function getAnimalByNumero(numero: string): Promise<Animal | null> {
+export async function getAnimalByNumero(numero: string): Promise<AnimalView | null> {
   const { data, error } = await supabase
     .from("animals")
     .select("*")
     .eq("numero", numero)
     .maybeSingle();
   if (error) throw error;
-  return (data as Animal | null) ?? null;
+  return data ? toView(data as Animal) : null;
 }
 
-export async function getAnimalById(id: string): Promise<Animal | null> {
+export async function getAnimalById(id: string): Promise<AnimalView | null> {
   const { data, error } = await supabase
     .from("animals")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return (data as Animal | null) ?? null;
+  return data ? toView(data as Animal) : null;
 }
 
-export async function listHijos(animalId: string): Promise<Animal[]> {
+export async function listHijos(animalId: string): Promise<AnimalView[]> {
   const { data, error } = await supabase
     .from("animals")
     .select("*")
     .or(`mother_id.eq.${animalId},father_id.eq.${animalId}`)
     .order("numero", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as Animal[];
+  return ((data ?? []) as Animal[]).map(toView);
 }
 
 export async function updateRelaciones(
   animalId: string,
   input: AnimalRelacionInput,
-): Promise<Animal> {
+): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update(input)
@@ -57,10 +69,10 @@ export async function updateRelaciones(
     .select()
     .single();
   if (error) throw error;
-  return data as Animal;
+  return toView(data as Animal);
 }
 
-export async function createAnimal(input: AnimalFormOutput): Promise<Animal> {
+export async function createAnimal(input: AnimalFormOutput): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .insert(input)
@@ -70,13 +82,13 @@ export async function createAnimal(input: AnimalFormOutput): Promise<Animal> {
     if (error.code === "23505") throw new Error("Ya existe un animal con ese número");
     throw error;
   }
-  return data as Animal;
+  return toView(data as Animal);
 }
 
 export async function updateAnimal(
   numero: string,
   input: Partial<AnimalFormOutput>,
-): Promise<Animal> {
+): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update(input)
@@ -84,7 +96,7 @@ export async function updateAnimal(
     .select()
     .single();
   if (error) throw error;
-  return data as Animal;
+  return toView(data as Animal);
 }
 
 export async function deleteAnimal(numero: string): Promise<void> {
@@ -101,7 +113,7 @@ export type EgresoAnimalInput = {
 export async function marcarEgresoAnimal(
   numero: string,
   input: EgresoAnimalInput,
-): Promise<Animal> {
+): Promise<AnimalView> {
   // 1) Registrar evento en la timeline (informativo).
   const { error: insErr } = await supabase.from("animal_events").insert({
     vaca_numero: numero,
@@ -125,10 +137,10 @@ export async function marcarEgresoAnimal(
     .select()
     .single();
   if (error) throw error;
-  return data as Animal;
+  return toView(data as Animal);
 }
 
-export async function reactivarAnimal(numero: string): Promise<Animal> {
+export async function reactivarAnimal(numero: string): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update({
@@ -140,5 +152,5 @@ export async function reactivarAnimal(numero: string): Promise<Animal> {
     .select()
     .single();
   if (error) throw error;
-  return data as Animal;
+  return toView(data as Animal);
 }

@@ -25,18 +25,18 @@ export function ListaAnimales() {
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useAnimals({
     sexo: sexo === "todos" ? undefined : sexo,
-    categoria: categoria === "todas" ? undefined : categoria,
     estado_actual: soloActivas ? "activa" : undefined,
   });
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = q.trim().toLowerCase();
-    if (!term) return data;
-    return data.filter(
-      (a) => a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term),
-    );
-  }, [data, q]);
+    return data.filter((a) => {
+      if (categoria !== "todas" && a.categoria_view !== categoria) return false;
+      if (!term) return true;
+      return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
+    });
+  }, [data, q, categoria]);
 
   return (
     <div className="space-y-5">
@@ -116,15 +116,22 @@ export function ListaAnimales() {
                 <CardContent className="space-y-1 p-4">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-lg font-semibold text-foreground">#{a.numero}</span>
-                    {a.estado_actual !== "activa" && (
-                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                        {ESTADO_ACTUAL_LABELS[a.estado_actual]}
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {a.requiere_clasificacion && (
+                        <span className="rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">
+                          Requiere clasificación
+                        </span>
+                      )}
+                      {a.estado_actual !== "activa" && (
+                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                          {ESTADO_ACTUAL_LABELS[a.estado_actual]}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-base text-foreground">{a.nombre || "Sin nombre"}</div>
                   <div className="text-sm text-muted-foreground">
-                    {SEXO_LABELS[a.sexo]} · {CATEGORIA_LABELS[a.categoria]}
+                    {SEXO_LABELS[a.sexo]} · {CATEGORIA_LABELS[a.categoria_view]}
                     {a.estado_reproductivo ? ` · ${ESTADO_REPRODUCTIVO_LABELS[a.estado_reproductivo]}` : ""}
                   </div>
                 </CardContent>
