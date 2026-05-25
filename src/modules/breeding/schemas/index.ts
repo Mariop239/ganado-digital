@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+export const tipoServicioSchema = z.enum(["monta_natural", "inseminacion"]);
+export const estadoServicioSchema = z.enum(["pendiente", "prenada", "vacia", "parida"]);
+
+export const servicioSchema = z.object({
+  tipo_servicio: tipoServicioSchema,
+  toro: z.string().trim().max(100).default(""),
+  fecha_monta: z.string().min(1, "Requerida"),
+  estado_servicio: estadoServicioSchema.default("pendiente"),
+  observaciones: z.string().trim().max(1000).default(""),
+});
+
+export type ServicioFormInput = z.input<typeof servicioSchema>;
+export type ServicioInput = z.output<typeof servicioSchema>;
+
 export const historialSchema = z.object({
   fecha_monta: z.string().min(1, "Requerida"),
   toro: z.string().trim().max(100),

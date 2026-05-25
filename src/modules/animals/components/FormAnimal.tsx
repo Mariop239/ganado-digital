@@ -18,10 +18,23 @@ import { toast } from "sonner";
 type Props = {
   animal?: Animal;
   onDone: (numero: string) => void;
+  /** Semilla inicial cuando NO se está editando un animal. */
+  defaults?: Partial<AnimalFormInput>;
+  /** Campos a renderizar disabled (precargados y no editables). */
+  lockedFields?: Array<keyof AnimalFormInput>;
+  /** Hook opcional ejecutado tras crear con éxito; recibe el animal creado. */
+  onAfterCreate?: (created: Animal) => void | Promise<void>;
 };
 
-export function FormAnimal({ animal, onDone }: Props) {
+export function FormAnimal({
+  animal,
+  onDone,
+  defaults,
+  lockedFields,
+  onAfterCreate,
+}: Props) {
   const editing = !!animal;
+  const locked = (k: keyof AnimalFormInput) => !!lockedFields?.includes(k);
   const form = useForm<AnimalFormInput>({
     resolver: zodResolver(animalSchema),
     defaultValues: animal
@@ -46,6 +59,7 @@ export function FormAnimal({ animal, onDone }: Props) {
           estado_actual: "activa", estado_reproductivo: null,
           fecha_nacimiento: null, color: "", raza: "", dueno: "",
           mother_id: null, father_id: null, madre_texto: "", padre_texto: "",
+          ...defaults,
         },
   });
   const create = useCreateAnimal();
@@ -80,6 +94,7 @@ export function FormAnimal({ animal, onDone }: Props) {
         onDone(animal!.numero);
       } else {
         const created = await create.mutateAsync(parsed);
+        if (onAfterCreate) await onAfterCreate(created);
         toast.success("Animal añadido");
         onDone(created.numero);
       }
@@ -95,7 +110,7 @@ export function FormAnimal({ animal, onDone }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="numero" className="text-base">Número (arete) *</Label>
-          <Input id="numero" className="h-12 text-base" disabled={editing} {...form.register("numero")} />
+          <Input id="numero" className="h-12 text-base" disabled={editing || locked("numero")} {...form.register("numero")} />
           {err.numero && <p className="text-sm text-destructive">{err.numero.message as string}</p>}
         </div>
         <div className="space-y-2">
@@ -109,7 +124,7 @@ export function FormAnimal({ animal, onDone }: Props) {
           render={({ field }) => (
             <div className="space-y-2">
               <Label className="text-base">Sexo *</Label>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value} onValueChange={field.onChange} disabled={locked("sexo")}>
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(["hembra", "macho"] as const).map((s) => (
@@ -186,6 +201,7 @@ export function FormAnimal({ animal, onDone }: Props) {
           <Label htmlFor="fecha_nacimiento" className="text-base">Fecha de nacimiento</Label>
           <Input
             id="fecha_nacimiento" type="date" className="h-12 text-base"
+            disabled={locked("fecha_nacimiento")}
             {...form.register("fecha_nacimiento", {
               setValueAs: (v) => (v === "" ? null : v),
             })}
@@ -218,10 +234,11 @@ export function FormAnimal({ animal, onDone }: Props) {
                 sexo="hembra"
                 excludeId={animal?.id}
                 placeholder="Seleccionar madre…"
+                disabled={locked("mother_id")}
               />
             )}
           />
-          <Input placeholder="o texto libre" className="min-h-11" {...form.register("madre_texto")} />
+          <Input placeholder="o texto libre" className="min-h-11" disabled={locked("madre_texto")} {...form.register("madre_texto")} />
         </div>
         <div className="space-y-2">
           <Label className="text-base">Padre (del catálogo)</Label>
@@ -235,10 +252,11 @@ export function FormAnimal({ animal, onDone }: Props) {
                 sexo="macho"
                 excludeId={animal?.id}
                 placeholder="Seleccionar padre…"
+                disabled={locked("father_id")}
               />
             )}
           />
-          <Input placeholder="o texto libre" className="min-h-11" {...form.register("padre_texto")} />
+          <Input placeholder="o texto libre" className="min-h-11" disabled={locked("padre_texto")} {...form.register("padre_texto")} />
         </div>
       </div>
 

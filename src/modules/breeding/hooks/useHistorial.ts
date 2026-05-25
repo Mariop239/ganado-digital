@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  createHistorial,
+  createServicio,
   deleteHistorial,
   listHistorial,
-  updateHistorial,
+  updateServicio,
+  marcarParida,
+  type MarcarParidaInput,
 } from "../repositories/historial.repository";
-import type { HistorialInput } from "../types/domain";
+import type { ServicioInput } from "../types/domain";
 
 export function useHistorial(vacaNumero: string) {
   return useQuery({
@@ -15,18 +17,18 @@ export function useHistorial(vacaNumero: string) {
   });
 }
 
-export function useCreateHistorial(vacaNumero: string) {
+export function useCreateServicio(vacaNumero: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: HistorialInput) => createHistorial(vacaNumero, input),
+    mutationFn: (input: ServicioInput) => createServicio(vacaNumero, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", vacaNumero] }),
   });
 }
 
-export function useUpdateHistorial(vacaNumero: string) {
+export function useUpdateServicio(vacaNumero: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: HistorialInput }) => updateHistorial(id, input),
+    mutationFn: ({ id, input }: { id: string; input: ServicioInput }) => updateServicio(id, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", vacaNumero] }),
   });
 }
@@ -35,6 +37,15 @@ export function useDeleteHistorial(vacaNumero: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteHistorial(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", vacaNumero] }),
+  });
+}
+
+export function useMarcarParida(vacaNumero: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: MarcarParidaInput }) =>
+      marcarParida(id, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", vacaNumero] }),
   });
 }

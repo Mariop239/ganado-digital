@@ -2,9 +2,16 @@ export { HistorialTabla } from "./components/HistorialTabla";
 export { FormHistorial } from "./components/FormHistorial";
 export {
   useHistorial,
-  useCreateHistorial,
-  useUpdateHistorial,
+  useCreateServicio,
+  useUpdateServicio,
   useDeleteHistorial,
+  useMarcarParida,
 } from "./hooks/useHistorial";
-export { historialSchema } from "./schemas";
-export type { Historial, HistorialInput } from "./types/domain";
+export { servicioSchema } from "./schemas";
+export type {
+  Historial,
+  ServicioInput,
+  ServicioFormInput,
+  TipoServicio,
+  EstadoServicio,
+} from "./types/domain";
