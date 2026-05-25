@@ -1,10 +1,17 @@
-import type { HistorialInput } from "../schemas";
+import type { HistorialInput, ServicioInput } from "../schemas";
+
+export type TipoServicio = "monta_natural" | "inseminacion";
+export type EstadoServicio = "pendiente" | "prenada" | "vacia" | "parida";
 
 export type Historial = {
   id: string;
   vaca_numero: string;
   fecha_monta: string;
   toro: string;
+  tipo_servicio: TipoServicio;
+  estado_servicio: EstadoServicio;
+  fecha_probable_parto: string | null;
+  cria_animal_id: string | null;
   fecha_parto: string | null;
   sexo_cria: "Macho" | "Hembra" | null;
   fecha_destete: string | null;
@@ -13,4 +20,4 @@ export type Historial = {
   updated_at: string;
 };
 
-export type { HistorialInput };
+export type { HistorialInput, ServicioInput };
