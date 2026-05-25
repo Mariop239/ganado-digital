@@ -47,9 +47,6 @@ function FamiliaEditor({ animalId, numero }: { animalId: string; numero: string 
     setPadreTexto(animal.padre_texto ?? "");
   }, [animal]);
 
-  const { data: madre } = useAnimal(""); // placeholder, no usar
-  void madre;
-
   const onGuardar = async () => {
     try {
       await update.mutateAsync({
