@@ -1,4 +1,4 @@
-import { useForm, type FieldValues, type Path } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,23 +26,22 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
     observaciones: z.string().trim().max(1000).optional(),
     payload: def.schema,
   });
-  type FormValues = {
-    fecha: string;
-    observaciones?: string;
-    payload: Record<string, unknown>;
-  };
-
-  const form = useForm<FormValues & FieldValues>({
-    resolver: zodResolver(fullSchema),
+  const form = useForm({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(fullSchema as any),
     defaultValues: {
       fecha: new Date().toISOString().slice(0, 10),
       observaciones: "",
-      payload: {},
+      payload: {} as Record<string, unknown>,
     },
   });
   const create = useCreateAnimalEvent(vacaNumero);
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: {
+    fecha: string;
+    observaciones?: string;
+    payload: Record<string, unknown>;
+  }) => {
     try {
       await create.mutateAsync({
         tipo: tipo as never,
@@ -75,7 +74,7 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
 
       {def.fields.map((f) => {
         const id = `payload.${f.name}`;
-        const fieldPath = `payload.${f.name}` as Path<FormValues>;
+        const fieldPath = `payload.${f.name}`;
         const err = payloadErrors?.[f.name]?.message;
         return (
           <div key={f.name} className="space-y-2">
