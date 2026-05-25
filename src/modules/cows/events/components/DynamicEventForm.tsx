@@ -68,7 +68,9 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
         <Label htmlFor="fecha" className="text-base">Fecha *</Label>
         <Input id="fecha" type="date" className="h-12 text-base" {...form.register("fecha")} />
         {form.formState.errors.fecha && (
-          <p className="text-sm text-destructive">{form.formState.errors.fecha.message}</p>
+          <p className="text-sm text-destructive">
+            {String(form.formState.errors.fecha.message ?? "")}
+          </p>
         )}
       </div>
 
