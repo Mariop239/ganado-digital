@@ -1,49 +1,132 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Activity,
+  Baby,
+  HeartPulse,
+  Crown,
+  ArrowDownRight,
+  LayoutGrid,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { useAnimals } from "../hooks/useAnimals";
 import { FormAnimal } from "./FormAnimal";
 import { CATEGORIA_LABELS, SEXO_LABELS } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
-import type { Sexo, Categoria } from "../types/domain";
+import type { Sexo, Categoria, AnimalView } from "../types/domain";
+
+type KpiKey = "todos" | "activos" | "gestantes" | "crianza" | "machos" | "egresados";
+
+type KpiDef = {
+  key: KpiKey;
+  label: string;
+  icon: LucideIcon;
+  match: (a: AnimalView) => boolean;
+  accent: string; // tailwind text color for icon
+};
+
+const CRIANZA_CATS: Categoria[] = ["ternero", "ternera", "novilla"];
+
+const KPIS: KpiDef[] = [
+  {
+    key: "todos",
+    label: "Ver todos",
+    icon: LayoutGrid,
+    match: () => true,
+    accent: "text-muted-foreground",
+  },
+  {
+    key: "activos",
+    label: "Total activos",
+    icon: Activity,
+    match: (a) => a.estado_actual === "activa",
+    accent: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    key: "gestantes",
+    label: "Vacas gestantes",
+    icon: HeartPulse,
+    match: (a) =>
+      a.estado_actual === "activa" &&
+      a.sexo === "hembra" &&
+      a.estado_reproductivo === "gestante",
+    accent: "text-pink-600 dark:text-pink-400",
+  },
+  {
+    key: "crianza",
+    label: "Novillas / Crianza",
+    icon: Baby,
+    match: (a) =>
+      a.estado_actual === "activa" && CRIANZA_CATS.includes(a.categoria_view),
+    accent: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    key: "machos",
+    label: "Toros / Machos",
+    icon: Crown,
+    match: (a) => a.estado_actual === "activa" && a.sexo === "macho",
+    accent: "text-indigo-600 dark:text-indigo-400",
+  },
+  {
+    key: "egresados",
+    label: "Egresados",
+    icon: ArrowDownRight,
+    match: (a) => a.estado_actual !== "activa",
+    accent: "text-destructive",
+  },
+];
 
 export function ListaAnimales() {
   const [q, setQ] = useState("");
-  const [soloActivas, setSoloActivas] = useState(true);
+  const [kpi, setKpi] = useState<KpiKey>("activos");
   const [sexo, setSexo] = useState<Sexo | "todos">("todos");
   const [categoria, setCategoria] = useState<Categoria | "todas">("todas");
   const [open, setOpen] = useState(false);
+  // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
+  // (incluido "Egresados") reflejen la realidad completa del rancho.
   const { data, isLoading } = useAnimals({
     sexo: sexo === "todos" ? undefined : sexo,
-    estado_actual: soloActivas ? "activa" : undefined,
   });
+
+  const counts = useMemo(() => {
+    const base = Object.fromEntries(KPIS.map((k) => [k.key, 0])) as Record<KpiKey, number>;
+    if (!data) return base;
+    for (const a of data) {
+      for (const k of KPIS) if (k.match(a)) base[k.key]++;
+    }
+    return base;
+  }, [data]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = q.trim().toLowerCase();
+    const kpiDef = KPIS.find((k) => k.key === kpi)!;
     return data.filter((a) => {
+      if (!kpiDef.match(a)) return false;
       if (categoria !== "todas" && a.categoria_view !== categoria) return false;
       if (!term) return true;
       return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
     });
-  }, [data, q, categoria]);
+  }, [data, q, categoria, kpi]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">Animales</h1>
-          <p className="text-sm text-muted-foreground">Catálogo del rancho</p>
+          <p className="text-sm text-muted-foreground">Resumen del rancho</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -58,6 +141,44 @@ export function ListaAnimales() {
             <FormAnimal onDone={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* KPI dashboard */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {KPIS.map(({ key, label, icon: Icon, accent }) => {
+          const active = kpi === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setKpi(key)}
+              aria-pressed={active}
+              className={cn(
+                "group rounded-lg border bg-card p-4 text-left transition-all",
+                "hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-sm"
+                  : "border-border",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {label}
+                </span>
+                <Icon
+                  className={cn(
+                    "h-4 w-4 transition-transform group-hover:scale-110",
+                    active ? "text-primary" : accent,
+                  )}
+                />
+              </div>
+              <div className="mt-2 text-3xl font-bold tabular-nums text-foreground">
+                {isLoading ? "—" : counts[key]}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
@@ -87,12 +208,6 @@ export function ListaAnimales() {
             ))}
           </SelectContent>
         </Select>
-        <Tabs value={soloActivas ? "activas" : "todas"} onValueChange={(v) => setSoloActivas(v === "activas")}>
-          <TabsList className="h-12">
-            <TabsTrigger value="activas" className="min-h-10 px-4 text-base">Activas</TabsTrigger>
-            <TabsTrigger value="todas" className="min-h-10 px-4 text-base">Todas</TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
 
       {isLoading ? (
