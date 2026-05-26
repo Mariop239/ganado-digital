@@ -110,6 +110,7 @@ export function ListaAnimales() {
               key={a.id}
               to="/animales/$numero"
               params={{ numero: a.numero }}
+              search={a.estado_actual !== "activa" ? { id: a.id } : {}}
               className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
             >
               <Card className="h-full transition-colors hover:bg-secondary/50">

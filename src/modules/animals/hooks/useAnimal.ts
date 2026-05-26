@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAnimalByNumero } from "../repositories/animals.repository";
+import { getAnimalByNumero, getAnimalById } from "../repositories/animals.repository";
 
-export function useAnimal(numero: string) {
+export function useAnimal(numero: string, id?: string) {
   return useQuery({
-    queryKey: ["animal", numero],
-    queryFn: () => getAnimalByNumero(numero),
-    enabled: !!numero,
+    queryKey: id ? ["animal-by-id", id] : ["animal", numero],
+    queryFn: () => (id ? getAnimalById(id) : getAnimalByNumero(numero)),
+    enabled: !!(id || numero),
   });
 }
