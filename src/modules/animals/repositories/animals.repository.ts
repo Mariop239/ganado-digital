@@ -241,6 +241,30 @@ export async function reactivarAnimal(numero: string): Promise<AnimalView> {
   return toView(data as Animal);
 }
 
+/**
+ * Marca el animal como egresado SIN insertar evento adicional en la timeline.
+ * Pensado para usarse desde el flujo de eventos (venta/fallecimiento), donde
+ * el evento ya fue creado por el caller.
+ */
+export async function aplicarEgresoSinEvento(
+  numero: string,
+  input: { fecha: string; motivo: string; estado: "vendida" | "fallecida" },
+): Promise<AnimalView | null> {
+  const { data, error } = await supabase
+    .from("animals")
+    .update({
+      estado_actual: input.estado,
+      fecha_egreso: input.fecha,
+      motivo_egreso: input.motivo,
+    })
+    .eq("numero", numero)
+    .eq("estado_actual", "activa")
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toView(data as Animal) : null;
+}
+
 export async function updateUbicacionLote(
   numero: string,
   input: { ubicacion_actual: string; lote_actual: string | null },

@@ -7,7 +7,7 @@ import {
 import type { AnimalEventInput } from "../types/domain";
 import {
   updateUbicacionLote,
-  marcarEgresoAnimal,
+  aplicarEgresoSinEvento,
 } from "@/modules/animals/repositories/animals.repository";
 
 export function useAnimalEvents(vacaNumero: string) {
@@ -42,7 +42,7 @@ export function useCreateAnimalEvent(vacaNumero: string) {
             ? `Venta: ${payload.comprador ?? ""}`.trim()
             : `Fallecimiento: ${payload.causa ?? ""}`.trim();
         try {
-          await marcarEgresoAnimal(vacaNumero, {
+          await aplicarEgresoSinEvento(vacaNumero, {
             fecha: input.fecha,
             motivo,
             estado,
