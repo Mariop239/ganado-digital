@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormAnimal } from "./FormAnimal";
 import { FamiliaTab } from "./FamiliaTab";
 import { ClasificacionAdultaDialog } from "./ClasificacionAdultaDialog";
-import { useReactivarAnimal, useDeleteAnimal } from "../hooks/useAnimals";
+import { useReactivarAnimal } from "../hooks/useAnimals";
 import { deleteAnimalSafe } from "../repositories/animals.repository";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AnimalView } from "../types/domain";
@@ -74,8 +74,6 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
       toast.error(e instanceof Error ? e.message : "No se pudo eliminar");
     },
   });
-  // Mantener referencia para evitar unused-import si se requiere en el futuro.
-  void useDeleteAnimal;
   const egresada = animal.estado_actual !== "activa";
   const esHembraAdulta = aplicaEstadoReproductivo(animal.sexo, animal.categoria);
 
