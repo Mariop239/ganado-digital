@@ -1,83 +1,86 @@
-## Objetivo
+## Problema
 
-Arreglar el bug donde clic en un animal egresado abre el perfil del activo que reutiliza ese arete, **sin romper el Principio #9** (URLs humanas `/animales/$numero`).
+Las tablas `animal_events`, `control_vacunas` e `historial` vinculan al animal por `vaca_numero` (texto). Ahora que dos animales pueden compartir `numero` (uno `activa`, otros `vendida/fallecida`), cualquier `.eq("vaca_numero", numero)` cruza datos entre ellos.
 
-## Estrategia
+La solución correcta (Principio #9: UUID interno, número humano) es enlazar por `animal_id uuid` y dejar `numero` solo para mostrar.
 
-Mantener la ruta `/animales/$numero` y añadir un parámetro de búsqueda opcional `?id=<uuid>` que actúa como desambiguador solo cuando hace falta.
+## Estrategia (migración progresiva, reversible)
 
-- Si llega `?id=...` → el perfil se resuelve por `id` (exacto, sin importar colisión).
-- Si no llega `?id` → comportamiento actual: se resuelve por `numero` priorizando el activo.
+### Fase A — Esquema: agregar `animal_id` sin romper nada
 
-URLs públicas, bookmarks y el alias legacy `/vacas/$numero` siguen funcionando intactos.
+Migración SQL:
+- `ALTER TABLE animal_events ADD COLUMN animal_id uuid REFERENCES animals(id) ON DELETE CASCADE;`
+- Idem para `control_vacunas` e `historial`.
+- Backfill: para cada fila, `animal_id = (SELECT id FROM animals WHERE numero = vaca_numero AND estado_actual = 'activa' LIMIT 1)`; si no hay activo, el más reciente por `created_at`.
+- Índices: `CREATE INDEX ... ON <tabla> (animal_id);`
+- `vaca_numero` se mantiene NOT NULL por compatibilidad con triggers legacy (`sync_vaca_estado`, vista `vacas`). Lo seguimos llenando en inserts.
+- No se vuelve `animal_id` NOT NULL todavía (Fase C).
 
-## Cambios
+### Fase B — Frontend: leer/escribir por `animal_id`
 
-### 1. Repositorio
+Repositorios:
+- `events.repository.ts`: `listEventsPorAnimal(animalId)` filtra por `animal_id`. `createEvent` recibe `{ animalId, numero }` y inserta ambos (`numero` solo para compatibilidad legacy).
+- `historial.repository.ts`: igual — todas las consultas por `animal_id`; inserts llenan `animal_id` + `vaca_numero`.
+- `vacunas.repository.ts`: igual.
+- `animals.repository.ts`:
+  - `checkAnimalDependencies(id, numero)` → filtra por `animal_id` en eventos/vacunas/historial (sin `vaca_numero`).
+  - `aplicarEgresoSinEvento` ya filtra por `numero + estado_actual='activa'` — se refactoriza para recibir `id` y usar `.eq("id", id)`.
+  - `marcarEgresoAnimal`, `reactivarAnimal`, `updateUbicacionLote`, `updateEstadoReproductivo`, `updateAnimal`: pasan a recibir `id` y filtrar por `.eq("id", id)`.
 
-`src/modules/animals/repositories/animals.repository.ts`
+Hooks:
+- `useAnimalEvents(animalId, numero)` — cambian signatures para tomar `animalId`. `queryKey: ["animal-events", animalId]`.
+- `useHistorial(animalId)` — idem.
+- `useVacunas` por vaca — idem.
+- `useUpdateAnimal/useMarcarEgreso/useReactivar/useDeleteAnimal` — toman `id`.
 
-- `getAnimalById` ya existe y se usará para la resolución por id.
-- No se toca `getAnimalByNumero` (ya prioriza activo).
+Componentes:
+- `PerfilAnimal.tsx`, `FormHistorial`, `EventDialog`, `VacunasTablaVaca`, `FormVacuna`, `FamiliaTab`, etc. — pasar `animal.id` en lugar de `animal.numero` a hooks y mutaciones.
+- Listas (`ListaAnimales`, `HistorialTabla`, `EventTimeline`, etc.): `key={x.id}`.
 
-### 2. Hook
+Compatibilidad legacy:
+- `vacas.repository.ts` (módulo `cows`) se deja como está internamente — solo lo usa código legacy que no afectamos en esta fase. Los triggers `sync_*` siguen funcionando porque seguimos escribiendo `vaca_numero` en inserts.
 
-`src/modules/animals/hooks/useAnimal.ts`
+### Fase C — (futura, fuera de scope ahora) volver `animal_id` NOT NULL y eliminar `vaca_numero`
 
-- Aceptar segundo argumento opcional `id?: string`.
-- Si `id` está presente, delegar a `getAnimalById(id)` (con queryKey `["animal-by-id", id]`).
-- Si no, mantener el flujo actual por `numero`.
+No se hace ahora. Requiere primero migrar/retirar triggers legacy y la vista `vacas`.
 
-### 3. Ruta del perfil
+## Archivos a tocar
 
-`src/routes/_authenticated/animales.$numero.tsx`
+**Migración SQL (nueva):**
+- `supabase/migrations/<ts>_add_animal_id_to_event_tables.sql`
 
-- Declarar `validateSearch` con `{ id?: string }` (zod o función simple).
-- Leer `Route.useSearch()` y pasar `id` al hook `useAnimal(numero, id)`.
-- Mensaje de "no encontrado" sigue mostrando el `numero` para el usuario.
+**Repositorios:**
+- `src/modules/cows/events/repositories/events.repository.ts`
+- `src/modules/breeding/repositories/historial.repository.ts`
+- `src/modules/vaccinations/repositories/vacunas.repository.ts`
+- `src/modules/animals/repositories/animals.repository.ts`
 
-### 4. Links que deben adjuntar `?id` cuando el animal NO está activo
+**Hooks:**
+- `src/modules/cows/events/hooks/useAnimalEvents.ts`
+- `src/modules/breeding/hooks/useHistorial.ts`
+- `src/modules/vaccinations/hooks/useVacunas.ts`
+- `src/modules/animals/hooks/useAnimals.ts` (mutaciones por id)
 
-Solo se añade `search={{ id: a.id }}` cuando `a.estado_actual !== "activa"` (los activos son únicos por número y no necesitan desambiguación). Esto mantiene URLs limpias en el caso común.
+**Componentes (consumidores):**
+- `PerfilAnimal.tsx`, `FamiliaTab.tsx`, `ListaAnimales.tsx`
+- `EventDialog.tsx`, `EventTimeline.tsx`, `DynamicEventForm.tsx`
+- `FormHistorial.tsx`, `HistorialTabla.tsx`
+- `FormVacuna.tsx`, `VacunasTablaVaca.tsx`
+- `routes/_authenticated/vacunas.tsx` (lista global — keys por id)
 
-Archivos:
+**No se toca:**
+- `vacas` (tabla legacy) ni `cows/repositories/vacas.repository.ts`.
+- Triggers `sync_*` ni vista legacy.
+- `FormAnimal`, validación de unicidad de `numero`, schemas Zod del dominio.
 
-- `src/modules/animals/components/ListaAnimales.tsx` — el `<Link to="/animales/$numero">` en la tarjeta.
-- `src/modules/animals/components/FamiliaTab.tsx` — dos `<Link>` (hijos e individuo seleccionado de familia).
-- `src/modules/animals/components/SelectorAnimal.tsx` — actualmente filtra por `activa` vía `useAnimals`; revisar y añadir `search` condicional si llegara a navegar (hoy solo selecciona id, no navega — confirmar y dejar como está si aplica).
-- `src/modules/breeding/components/HistorialTabla.tsx` — cualquier `<Link>` hacia perfil de cría/madre.
+## Riesgos y cleanup
 
-Patrón:
-
-```tsx
-<Link
-  to="/animales/$numero"
-  params={{ numero: a.numero }}
-  search={a.estado_actual !== "activa" ? { id: a.id } : undefined}
->
-```
-
-### 5. Alias legacy
-
-`src/routes/_authenticated/vacas.$numero.tsx` se deja igual (sin id; el legacy apuntaba a animales activos por número y eso sigue siendo correcto).
-
-## Lo que NO se cambia
-
-- Esquema de Supabase, migraciones, RLS, índices.
-- Nombres de archivos de ruta (`animales.$numero.tsx` se mantiene).
-- Tipos de dominio (`Animal.numero` sigue string obligatorio).
-- Repos de breeding/events/vaccinations.
-- Lógica de FormAnimal ni unicidad ya implementada.
-
-## Riesgos / cleanup
-
-- Riesgo bajo: el query param es aditivo y opcional.
-- No hay deuda nueva: cuando el usuario navega desde la lista a un activo, la URL queda sin `?id` (humana). Solo histórico/egresados llevan `?id`.
-- No se introducen wrappers, ni rutas duplicadas, ni componentes paralelos.
+- Tras backfill, filas viejas con `numero` único quedan correctamente enlazadas. Filas con `numero` colisionado se enlazan al activo (consistente con la lógica que ya teníamos en `getAnimalByNumero`).
+- React Query keys cambian de `[..., numero]` a `[..., animalId]`: cualquier `invalidateQueries` viejo deja de invalidar. Se actualizan todos los call-sites en el mismo cambio.
+- `useAnimals` (`marcarEgreso/reactivar/delete/update`) cambia firma de `numero` → `id`: hay que ajustar todos los consumidores en `PerfilAnimal` y derivados.
 
 ## Verificación
 
-1. Lista con dos animales con mismo `numero` (uno activa, otro vendida): clic en activa abre activa (URL sin `?id`), clic en vendida abre vendida (URL con `?id=<uuid>`).
-2. Refrescar `/animales/104?id=<uuid-egresado>` muestra el egresado.
-3. Refrescar `/animales/104` (sin id) muestra el activo.
-4. Alias `/vacas/104` sigue redirigiendo y resolviendo al activo.
+- Crear dos animales con el mismo `numero` (uno egresado, uno activo); registrar evento/vacuna/servicio en el activo; el egresado NO debe mostrar ese registro.
+- Marcar venta en el activo: el egresado original conserva su estado y datos.
+- Lista de animales: dos tarjetas distintas con keys distintas.
