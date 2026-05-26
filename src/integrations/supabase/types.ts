@@ -59,13 +59,6 @@ export type Database = {
             referencedRelation: "animals"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "animal_events_vaca_numero_fkey"
-            columns: ["vaca_numero"]
-            isOneToOne: false
-            referencedRelation: "vacas"
-            referencedColumns: ["numero"]
-          },
         ]
       }
       animals: {
@@ -200,13 +193,6 @@ export type Database = {
             referencedRelation: "animals"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "control_vacunas_vaca_numero_fkey"
-            columns: ["vaca_numero"]
-            isOneToOne: false
-            referencedRelation: "vacas"
-            referencedColumns: ["numero"]
-          },
         ]
       }
       historial: {
@@ -271,13 +257,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "animals"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "historial_vaca_numero_fkey"
-            columns: ["vaca_numero"]
-            isOneToOne: false
-            referencedRelation: "vacas"
-            referencedColumns: ["numero"]
           },
         ]
       }
