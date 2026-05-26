@@ -5,7 +5,10 @@ import {
   listEventsPorVaca,
 } from "../repositories/events.repository";
 import type { AnimalEventInput } from "../types/domain";
-import { updateUbicacionLote } from "@/modules/animals/repositories/animals.repository";
+import {
+  updateUbicacionLote,
+  marcarEgresoAnimal,
+} from "@/modules/animals/repositories/animals.repository";
 
 export function useAnimalEvents(vacaNumero: string) {
   return useQuery({
@@ -29,6 +32,23 @@ export function useCreateAnimalEvent(vacaNumero: string) {
           });
         } catch (e) {
           console.error("No se pudo actualizar ubicación/lote del animal", e);
+        }
+      }
+      if (input.tipo === "venta" || input.tipo === "fallecimiento") {
+        const estado = input.tipo === "venta" ? "vendida" : "fallecida";
+        const payload = input.payload as { comprador?: string; causa?: string };
+        const motivo =
+          input.tipo === "venta"
+            ? `Venta: ${payload.comprador ?? ""}`.trim()
+            : `Fallecimiento: ${payload.causa ?? ""}`.trim();
+        try {
+          await marcarEgresoAnimal(vacaNumero, {
+            fecha: input.fecha,
+            motivo,
+            estado,
+          });
+        } catch (e) {
+          console.error("No se pudo actualizar el estado del animal", e);
         }
       }
       return evt;

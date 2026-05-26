@@ -137,6 +137,59 @@ export async function deleteAnimal(numero: string): Promise<void> {
   if (error) throw error;
 }
 
+export type AnimalDeleteDeps = {
+  hijos: number;
+  eventos: number;
+  vacunas: number;
+  historial: number;
+};
+
+/**
+ * Verifica si un animal tiene dependencias que impidan eliminarlo
+ * (crías, eventos, vacunas, historial reproductivo).
+ */
+export async function checkAnimalDependencies(
+  id: string,
+  numero: string,
+): Promise<AnimalDeleteDeps> {
+  const [hijos, eventos, vacunas, historial] = await Promise.all([
+    supabase.from("animals").select("id", { count: "exact", head: true })
+      .or(`mother_id.eq.${id},father_id.eq.${id}`),
+    supabase.from("animal_events").select("id", { count: "exact", head: true })
+      .eq("vaca_numero", numero),
+    supabase.from("control_vacunas").select("id", { count: "exact", head: true })
+      .eq("vaca_numero", numero),
+    supabase.from("historial").select("id", { count: "exact", head: true })
+      .eq("vaca_numero", numero),
+  ]);
+  if (hijos.error) throw hijos.error;
+  if (eventos.error) throw eventos.error;
+  if (vacunas.error) throw vacunas.error;
+  if (historial.error) throw historial.error;
+  return {
+    hijos: hijos.count ?? 0,
+    eventos: eventos.count ?? 0,
+    vacunas: vacunas.count ?? 0,
+    historial: historial.count ?? 0,
+  };
+}
+
+/**
+ * Elimina un animal por id solo si no tiene dependencias.
+ * Lanza un error legible si las tiene.
+ */
+export async function deleteAnimalSafe(id: string, numero: string): Promise<void> {
+  const deps = await checkAnimalDependencies(id, numero);
+  const total = deps.hijos + deps.eventos + deps.vacunas + deps.historial;
+  if (total > 0) {
+    throw new Error(
+      "No se puede eliminar porque tiene historial o crías registradas. Si el animal salió de la finca, registre un evento de Venta o Fallecimiento.",
+    );
+  }
+  const { error } = await supabase.from("animals").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export type EgresoAnimalInput = {
   fecha: string;
   motivo: string;
