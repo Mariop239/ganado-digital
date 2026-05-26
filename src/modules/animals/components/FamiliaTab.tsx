@@ -14,39 +14,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { useAnimal } from "../hooks/useAnimal";
 import { useAnimalById } from "../hooks/useAnimalById";
 import { useHijos } from "../hooks/useHijos";
 import { useUpdateRelaciones } from "../hooks/useUpdateRelaciones";
 import { SelectorAnimal } from "./SelectorAnimal";
 import type { AnimalView } from "../types/domain";
 
-type Props = { numero: string };
+type Props = { animal: AnimalView };
 
-export function FamiliaTab({ numero }: Props) {
-  const { data: animal, isLoading } = useAnimal(numero);
-
-  if (isLoading) {
-    return <Skeleton className="h-64 w-full" />;
-  }
-  if (!animal) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Este animal aún no está registrado en el catálogo unificado.
-      </p>
-    );
-  }
-  return <FamiliaEditor animalId={animal.id} numero={animal.numero} />;
+export function FamiliaTab({ animal }: Props) {
+  return <FamiliaEditor animal={animal} />;
 }
 
-function FamiliaEditor({ animalId, numero }: { animalId: string; numero: string }) {
-  const { data: animal } = useAnimal(numero);
+function FamiliaEditor({ animal }: { animal: AnimalView }) {
+  const animalId = animal.id;
+  const numero = animal.numero;
   const { data: hijos = [] } = useHijos(animalId);
   const { data: madre } = useAnimalById(animal?.mother_id);
   const { data: padre } = useAnimalById(animal?.father_id);
   const [editOpen, setEditOpen] = useState(false);
-
-  if (!animal) return null;
 
   return (
     <div className="space-y-4">
@@ -94,7 +80,11 @@ function FamiliaEditor({ animalId, numero }: { animalId: string; numero: string 
                     </div>
                   </div>
                   <Button asChild variant="ghost" size="sm" className="min-h-10">
-                    <Link to="/animales/$numero" params={{ numero: h.numero }}>
+                    <Link
+                      to="/animales/$numero"
+                      params={{ numero: h.numero }}
+                      search={h.estado_actual !== "activa" ? { id: h.id } : {}}
+                    >
                       Ver
                     </Link>
                   </Button>
@@ -136,6 +126,7 @@ function PadreRow({
         <Link
           to="/animales/$numero"
           params={{ numero: animal.numero }}
+          search={animal.estado_actual !== "activa" ? { id: animal.id } : {}}
           className="flex items-center justify-between min-h-14 px-2 -mx-2 rounded-md hover:bg-accent/50 transition-colors"
         >
           <div>
