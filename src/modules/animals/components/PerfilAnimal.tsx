@@ -1,20 +1,32 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { ArrowLeft, Pencil, RotateCcw } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ArrowLeft, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormAnimal } from "./FormAnimal";
-import { EstadoAnimalDialog } from "./EstadoAnimalDialog";
 import { FamiliaTab } from "./FamiliaTab";
 import { ClasificacionAdultaDialog } from "./ClasificacionAdultaDialog";
-import { useReactivarAnimal } from "../hooks/useAnimals";
+import { useReactivarAnimal, useDeleteAnimal } from "../hooks/useAnimals";
+import { deleteAnimalSafe } from "../repositories/animals.repository";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AnimalView } from "../types/domain";
 import { CATEGORIA_LABELS, SEXO_LABELS, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
@@ -46,7 +58,24 @@ const rows = (a: AnimalView): Array<[string, string]> => [
 export function PerfilAnimal({ animal }: { animal: AnimalView }) {
   const [editOpen, setEditOpen] = useState(false);
   const [clasifOpen, setClasifOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const reactivar = useReactivarAnimal(animal.numero);
+  const eliminar = useMutation({
+    mutationFn: () => deleteAnimalSafe(animal.id, animal.numero),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["vacas"] });
+      toast.success("Registro eliminado");
+      navigate({ to: "/" });
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "No se pudo eliminar");
+    },
+  });
+  // Mantener referencia para evitar unused-import si se requiere en el futuro.
+  void useDeleteAnimal;
   const egresada = animal.estado_actual !== "activa";
   const esHembraAdulta = aplicaEstadoReproductivo(animal.sexo, animal.categoria);
 
@@ -85,16 +114,46 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
             <Button variant="outline" size="lg" className="min-h-12" onClick={() => setEditOpen(true)}>
               <Pencil className="mr-2 h-5 w-5" /> Editar
             </Button>
-            {egresada ? (
+            {egresada && (
               <Button variant="outline" size="lg" className="min-h-12" onClick={async () => {
                 try { await reactivar.mutateAsync(); toast.success("Animal reactivado"); }
                 catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Error"); }
               }}>
                 <RotateCcw className="mr-2 h-5 w-5" /> Reactivar
               </Button>
-            ) : (
-              <EstadoAnimalDialog numero={animal.numero} />
             )}
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="lg" className="min-h-12">
+                  <Trash2 className="mr-2 h-5 w-5" /> Eliminar registro
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción es solo para corregir errores de creación. Si el animal
+                    salió de la finca, registra un evento de <strong>Venta</strong> o{" "}
+                    <strong>Fallecimiento</strong> en su lugar. Se bloqueará si el animal
+                    tiene crías, eventos, vacunas o historial reproductivo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      eliminar.mutate(undefined, {
+                        onSettled: () => setDeleteOpen(false),
+                      });
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Eliminar definitivamente
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardHeader>
         <CardContent>
