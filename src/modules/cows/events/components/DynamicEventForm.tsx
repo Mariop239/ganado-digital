@@ -17,6 +17,48 @@ type Props = {
   onDone: () => void;
 };
 
+function formatSubmitError(e: unknown): string {
+  if (!e) return "Error desconocido al guardar";
+  if (typeof e === "string") return e;
+  // Supabase PostgrestError-like: { message, details, hint, code }
+  if (typeof e === "object") {
+    const err = e as {
+      message?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+    };
+    const parts = [
+      err.message,
+      err.details,
+      err.hint,
+      err.code ? `(code ${err.code})` : null,
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" — ");
+  }
+  return "Error al guardar";
+}
+
+function sanitizePayload(
+  raw: Record<string, unknown>,
+  allowedKeys: ReadonlyArray<string>,
+): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
+  for (const k of allowedKeys) {
+    const v = raw?.[k];
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed === "") continue;
+      clean[k] = trimmed;
+      continue;
+    }
+    if (typeof v === "number" && Number.isNaN(v)) continue;
+    clean[k] = v;
+  }
+  return clean;
+}
+
 export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) {
   const def = EVENT_REGISTRY[tipo];
   const fullSchema = z.object({
@@ -44,17 +86,41 @@ export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) 
     payload: Record<string, unknown>;
   }) => {
     try {
+      const allowedKeys = def.fields.map((f) => f.name as string);
+      const cleanPayload = sanitizePayload(values.payload ?? {}, allowedKeys);
       await create.mutateAsync({
         tipo: tipo as never,
         fecha: values.fecha,
-        payload: values.payload as never,
+        payload: cleanPayload as never,
         observaciones: values.observaciones || null,
       });
       toast.success(`${def.label} registrado`);
       onDone();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error al guardar");
+      console.error("[DynamicEventForm] save failed", e);
+      toast.error(formatSubmitError(e), { duration: 10000 });
     }
+  };
+
+  const onInvalid = (errors: unknown) => {
+    console.error("[DynamicEventForm] validation errors", errors);
+    const flat: string[] = [];
+    const walk = (obj: unknown, path: string) => {
+      if (!obj || typeof obj !== "object") return;
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (v && typeof v === "object" && "message" in (v as object)) {
+          const msg = (v as { message?: string }).message;
+          if (msg) flat.push(`${path ? `${path}.` : ""}${k}: ${msg}`);
+        } else if (v && typeof v === "object") {
+          walk(v, path ? `${path}.${k}` : k);
+        }
+      }
+    };
+    walk(errors, "");
+    toast.error(
+      flat.length ? `Revisa los campos: ${flat.join(" · ")}` : "Formulario inválido",
+      { duration: 10000 },
+    );
   };
 
   const payloadErrors = form.formState.errors.payload as
@@ -62,7 +128,7 @@ export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) 
     | undefined;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
       <p className="text-sm text-muted-foreground">{def.description}</p>
 
       <div className="space-y-2">
