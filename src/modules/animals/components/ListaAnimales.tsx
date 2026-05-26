@@ -79,6 +79,7 @@ export function ListaAnimales() {
   const [categoria, setCategoria] = useState<Categoria | "todas">("todas");
   const [ubicacion, setUbicacion] = useState<string>("todas");
   const [lote, setLote] = useState<string>("todos");
+  const [causa, setCausa] = useState<"todas" | "vendida" | "fallecida">("todas");
   const [open, setOpen] = useState(false);
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
   // (incluido "Egresados") reflejen la realidad completa del rancho.
@@ -86,14 +87,37 @@ export function ListaAnimales() {
     sexo: sexo === "todos" ? undefined : sexo,
   });
 
+  const isEgresados = kpi === "egresados";
+
+  // Animales que pasan los filtros contextuales (ubicación/lote para activos,
+  // causa para egresados). Los KPI cards cuentan sobre esta base para ser
+  // reactivos al contexto seleccionado.
+  const contextScoped = useMemo(() => {
+    if (!data) return [];
+    return data.filter((a) => {
+      if (isEgresados) {
+        if (causa !== "todas" && a.estado_actual !== causa) return false;
+      } else {
+        if (ubicacion !== "todas") {
+          const u = (a.ubicacion_actual ?? "").trim() || "Mi rancho";
+          if (u !== ubicacion) return false;
+        }
+        if (lote !== "todos") {
+          const l = (a.lote_actual ?? "").trim();
+          if (l !== lote) return false;
+        }
+      }
+      return true;
+    });
+  }, [data, ubicacion, lote, causa, isEgresados]);
+
   const counts = useMemo(() => {
     const base = Object.fromEntries(KPIS.map((k) => [k.key, 0])) as Record<KpiKey, number>;
-    if (!data) return base;
-    for (const a of data) {
+    for (const a of contextScoped) {
       for (const k of KPIS) if (k.match(a)) base[k.key]++;
     }
     return base;
-  }, [data]);
+  }, [contextScoped]);
 
   const ubicaciones = useMemo(() => {
     const set = new Set<string>();
@@ -114,24 +138,17 @@ export function ListaAnimales() {
   }, [data]);
 
   const filtered = useMemo(() => {
-    if (!data) return [];
     const term = q.trim().toLowerCase();
     const kpiDef = KPIS.find((k) => k.key === kpi)!;
-    return data.filter((a) => {
+    return contextScoped.filter((a) => {
       if (!kpiDef.match(a)) return false;
       if (categoria !== "todas" && a.categoria_view !== categoria) return false;
-      if (ubicacion !== "todas") {
-        const u = (a.ubicacion_actual ?? "").trim() || "Mi rancho";
-        if (u !== ubicacion) return false;
-      }
-      if (lote !== "todos") {
-        const l = (a.lote_actual ?? "").trim();
-        if (l !== lote) return false;
-      }
       if (!term) return true;
       return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
     });
-  }, [data, q, categoria, kpi, ubicacion, lote]);
+  }, [contextScoped, q, categoria, kpi]);
+
+  const totalKpi = counts[kpi] ?? 0;
 
   return (
     <div className="space-y-5">
@@ -195,44 +212,71 @@ export function ListaAnimales() {
 
       {/* Filtros de ubicación / lote */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <Select value={ubicacion} onValueChange={setUbicacion}>
-          <SelectTrigger className="h-11 w-full sm:w-56">
-            <SelectValue placeholder="Filtrar por ubicación" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas las ubicaciones</SelectItem>
-            {ubicaciones.map((u) => (
-              <SelectItem key={u} value={u}>{u}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={lote} onValueChange={setLote}>
-          <SelectTrigger className="h-11 w-full sm:w-56">
-            <SelectValue placeholder="Filtrar por lote" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los lotes</SelectItem>
-            {lotes.length === 0 ? (
-              <SelectItem value="__none" disabled>Sin lotes registrados</SelectItem>
-            ) : (
-              lotes.map((l) => (
-                <SelectItem key={l} value={l}>{l}</SelectItem>
-              ))
+        {isEgresados ? (
+          <>
+            <Select value={causa} onValueChange={(v) => setCausa(v as typeof causa)}>
+              <SelectTrigger className="h-11 w-full sm:w-56">
+                <SelectValue placeholder="Filtrar por causa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas las causas</SelectItem>
+                <SelectItem value="vendida">Vendido</SelectItem>
+                <SelectItem value="fallecida">Fallecido</SelectItem>
+              </SelectContent>
+            </Select>
+            {causa !== "todas" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start sm:self-auto"
+                onClick={() => setCausa("todas")}
+              >
+                Limpiar filtro
+              </Button>
             )}
-          </SelectContent>
-        </Select>
-        {(ubicacion !== "todas" || lote !== "todos") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-start sm:self-auto"
-            onClick={() => {
-              setUbicacion("todas");
-              setLote("todos");
-            }}
-          >
-            Limpiar filtros
-          </Button>
+          </>
+        ) : (
+          <>
+            <Select value={ubicacion} onValueChange={setUbicacion}>
+              <SelectTrigger className="h-11 w-full sm:w-56">
+                <SelectValue placeholder="Filtrar por ubicación" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas las ubicaciones</SelectItem>
+                {ubicaciones.map((u) => (
+                  <SelectItem key={u} value={u}>{u}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={lote} onValueChange={setLote}>
+              <SelectTrigger className="h-11 w-full sm:w-56">
+                <SelectValue placeholder="Filtrar por lote" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los lotes</SelectItem>
+                {lotes.length === 0 ? (
+                  <SelectItem value="__none" disabled>Sin lotes registrados</SelectItem>
+                ) : (
+                  lotes.map((l) => (
+                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {(ubicacion !== "todas" || lote !== "todos") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start sm:self-auto"
+                onClick={() => {
+                  setUbicacion("todas");
+                  setLote("todos");
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </>
         )}
       </div>
 
@@ -274,6 +318,11 @@ export function ListaAnimales() {
           </CardContent>
         </Card>
       ) : (
+        <>
+        <p className="text-sm text-muted-foreground">
+          Mostrando <span className="font-medium text-foreground">{filtered.length}</span> animales de{" "}
+          <span className="font-medium text-foreground">{totalKpi}</span> en total
+        </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((a) => (
             <Link
@@ -310,6 +359,7 @@ export function ListaAnimales() {
             </Link>
           ))}
         </div>
+        </>
       )}
     </div>
   );

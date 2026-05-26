@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { z } from "zod";
 import { EVENT_REGISTRY } from "../registry";
 import { useCreateAnimalEvent } from "../hooks/useAnimalEvents";
 import type { AnimalEventType } from "../types/domain";
+import { useAnimals } from "@/modules/animals/hooks/useAnimals";
+import { ComboboxFree } from "@/components/ui/combobox-free";
+import { useMemo } from "react";
 
 type Props = {
   animalId: string;
@@ -61,6 +64,21 @@ function sanitizePayload(
 
 export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) {
   const def = EVENT_REGISTRY[tipo];
+  const { data: animals } = useAnimals();
+  const { ubicacionOptions, loteOptions } = useMemo(() => {
+    const ubic = new Set<string>(["Mi rancho"]);
+    const lot = new Set<string>();
+    for (const a of animals ?? []) {
+      const u = (a.ubicacion_actual ?? "").trim();
+      if (u) ubic.add(u);
+      const l = (a.lote_actual ?? "").trim();
+      if (l) lot.add(l);
+    }
+    return {
+      ubicacionOptions: Array.from(ubic),
+      loteOptions: Array.from(lot),
+    };
+  }, [animals]);
   const fullSchema = z.object({
     fecha: z
       .string()
@@ -145,12 +163,33 @@ export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) 
         const id = `payload.${f.name}`;
         const fieldPath = `payload.${f.name}`;
         const err = payloadErrors?.[f.name]?.message;
+        const isTrasladoDestino = tipo === "traslado" && f.name === "destino";
+        const isTrasladoLote = tipo === "traslado" && f.name === "lote";
         return (
           <div key={f.name} className="space-y-2">
             <Label htmlFor={id} className="text-base">
               {f.label}{f.required && " *"}
             </Label>
-            {f.kind === "textarea" ? (
+            {isTrasladoDestino || isTrasladoLote ? (
+              <Controller
+                control={form.control}
+                name={fieldPath as `payload.${string}`}
+                render={({ field }) => (
+                  <ComboboxFree
+                    id={id}
+                    value={(field.value as string) ?? ""}
+                    onChange={field.onChange}
+                    options={isTrasladoDestino ? ubicacionOptions : loteOptions}
+                    placeholder={
+                      isTrasladoDestino
+                        ? "Seleccionar o escribir ubicación…"
+                        : "Seleccionar o escribir lote…"
+                    }
+                    emptyText="Sin coincidencias"
+                  />
+                )}
+              />
+            ) : f.kind === "textarea" ? (
               <Textarea
                 id={id}
                 rows={3}
