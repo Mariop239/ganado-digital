@@ -3,11 +3,13 @@ import type { Vacuna, VacunaConVaca, VacunaInput } from "../types/domain";
 
 function normalize(input: VacunaInput) {
   return {
+    tipo_tratamiento: input.tipo_tratamiento,
     fecha: input.fecha,
     vacuna_aplicada: input.vacuna_aplicada,
     enfermedad_a_prevenir: input.enfermedad_a_prevenir ?? "",
     gasto: Number(input.gasto) || 0,
     observaciones: input.observaciones || null,
+    fecha_proxima_dosis: input.fecha_proxima_dosis?.trim() ? input.fecha_proxima_dosis : null,
   };
 }
 
