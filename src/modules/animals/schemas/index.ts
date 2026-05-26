@@ -49,6 +49,8 @@ export const animalSchema = z
     father_id: z.string().uuid().nullable().optional(),
     madre_texto: z.string().trim().max(120).default(""),
     padre_texto: z.string().trim().max(120).default(""),
+    ubicacion_actual: z.string().trim().max(100).default(""),
+    lote_actual: z.string().trim().max(100).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     // Número obligatorio solo para hembras (machos pueden autogenerar identificador temporal)
@@ -90,6 +92,9 @@ export const animalSchema = z
     ...data,
     // Reset implícito: machos nunca tienen estado_reproductivo
     estado_reproductivo: data.sexo === "macho" ? null : data.estado_reproductivo ?? null,
+    // Ubicación por defecto si viene vacía
+    ubicacion_actual: data.ubicacion_actual?.trim() ? data.ubicacion_actual.trim() : "Mi rancho",
+    lote_actual: data.lote_actual?.trim() ? data.lote_actual.trim() : null,
   }));
 
 export type AnimalFormInput = z.input<typeof animalSchema>;
