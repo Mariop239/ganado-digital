@@ -41,15 +41,13 @@ export function useCreateAnimalEvent(animalId: string, vacaNumero: string) {
           input.tipo === "venta"
             ? `Venta: ${payload.comprador ?? ""}`.trim()
             : `Fallecimiento: ${payload.causa ?? ""}`.trim();
-        try {
-          await aplicarEgresoSinEvento(animalId, {
-            fecha: input.fecha,
-            motivo,
-            estado,
-          });
-        } catch (e) {
-          console.error("No se pudo actualizar el estado del animal", e);
-        }
+        // Propagamos el error: si no podemos actualizar el estado, el caller
+        // debe ver el mensaje real (sin importar el sexo del animal).
+        await aplicarEgresoSinEvento(animalId, {
+          fecha: input.fecha,
+          motivo,
+          estado,
+        });
       }
       return evt;
     },
