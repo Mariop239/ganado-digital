@@ -154,9 +154,11 @@ export type Database = {
           created_at: string
           enfermedad_a_prevenir: string
           fecha: string
+          fecha_proxima_dosis: string | null
           gasto: number
           id: string
           observaciones: string | null
+          tipo_tratamiento: string
           updated_at: string
           vaca_numero: string
           vacuna_aplicada: string
@@ -166,9 +168,11 @@ export type Database = {
           created_at?: string
           enfermedad_a_prevenir?: string
           fecha: string
+          fecha_proxima_dosis?: string | null
           gasto?: number
           id?: string
           observaciones?: string | null
+          tipo_tratamiento?: string
           updated_at?: string
           vaca_numero: string
           vacuna_aplicada: string
@@ -178,9 +182,11 @@ export type Database = {
           created_at?: string
           enfermedad_a_prevenir?: string
           fecha?: string
+          fecha_proxima_dosis?: string | null
           gasto?: number
           id?: string
           observaciones?: string | null
+          tipo_tratamiento?: string
           updated_at?: string
           vaca_numero?: string
           vacuna_aplicada?: string

@@ -1,11 +1,20 @@
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { vacunaSchema } from "../schemas";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+import { CalendarIcon } from "lucide-react";
+import { vacunaSchema, TIPO_TRATAMIENTO_LABELS, type TipoTratamiento } from "../schemas";
 import type { VacunaInput } from "../types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { useCreateVacuna } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
@@ -19,11 +28,13 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
+      tipo_tratamiento: "vacuna",
       fecha: "",
       vacuna_aplicada: "",
       enfermedad_a_prevenir: "",
       gasto: 0,
       observaciones: "",
+      fecha_proxima_dosis: null,
     },
   });
   const create = useCreateVacuna(animalId, vacaNumero);
@@ -46,8 +57,28 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label className="text-base">Tipo de tratamiento *</Label>
+          <Controller
+            control={form.control}
+            name="tipo_tratamiento"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={(v) => field.onChange(v as TipoTratamiento)}>
+                <SelectTrigger className="h-12 text-base">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPO_TRATAMIENTO_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {err("tipo_tratamiento")}
+        </div>
         <div className="space-y-2">
-          <Label htmlFor="fecha" className="text-base">Fecha *</Label>
+          <Label htmlFor="fecha" className="text-base">Fecha de aplicación *</Label>
           <Input id="fecha" type="date" className="h-12 text-base" {...form.register("fecha")} />
           {err("fecha")}
         </div>
@@ -57,14 +88,57 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
           {err("gasto")}
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="vacuna_aplicada" className="text-base">Vacuna / medicamento *</Label>
+          <Label htmlFor="vacuna_aplicada" className="text-base">Producto / medicamento *</Label>
           <Input id="vacuna_aplicada" className="h-12 text-base" {...form.register("vacuna_aplicada")} />
           {err("vacuna_aplicada")}
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="enfermedad_a_prevenir" className="text-base">Enfermedad a prevenir</Label>
+          <Label htmlFor="enfermedad_a_prevenir" className="text-base">Enfermedad o motivo</Label>
           <Input id="enfermedad_a_prevenir" className="h-12 text-base" {...form.register("enfermedad_a_prevenir")} />
           {err("enfermedad_a_prevenir")}
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label className="text-base">Fecha de Próxima Dosis / Refuerzo (Opcional)</Label>
+          <Controller
+            control={form.control}
+            name="fecha_proxima_dosis"
+            render={({ field }) => {
+              const dateValue = field.value ? parseISO(field.value) : undefined;
+              return (
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "h-12 flex-1 justify-start text-left text-base font-normal",
+                          !dateValue && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateValue ? format(dateValue, "PPP", { locale: es }) : "Sin programar"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateValue}
+                        onSelect={(d) => field.onChange(d ? format(d, "yyyy-MM-dd") : null)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {field.value && (
+                    <Button type="button" variant="ghost" onClick={() => field.onChange(null)}>
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              );
+            }}
+          />
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="observaciones" className="text-base">Observaciones</Label>
@@ -74,7 +148,7 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button type="submit" size="lg" className="min-h-12" disabled={form.formState.isSubmitting}>
-          Registrar vacuna
+          Registrar tratamiento
         </Button>
       </div>
     </form>
