@@ -10,11 +10,12 @@ import { useCreateVacuna } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
 type Props = {
+  animalId: string;
   vacaNumero: string;
   onDone: () => void;
 };
 
-export function FormVacuna({ vacaNumero, onDone }: Props) {
+export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
@@ -25,7 +26,7 @@ export function FormVacuna({ vacaNumero, onDone }: Props) {
       observaciones: "",
     },
   });
-  const create = useCreateVacuna(vacaNumero);
+  const create = useCreateVacuna(animalId, vacaNumero);
 
   const onSubmit = async (values: VacunaInput) => {
     try {

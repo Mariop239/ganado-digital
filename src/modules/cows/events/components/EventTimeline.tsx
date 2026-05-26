@@ -22,9 +22,9 @@ function summarize<T extends AnimalEventType>(ev: AnimalEvent<T>): string {
   }
 }
 
-export function EventTimeline({ vacaNumero }: { vacaNumero: string }) {
-  const { data, isLoading } = useAnimalEvents(vacaNumero);
-  const del = useDeleteAnimalEvent(vacaNumero);
+export function EventTimeline({ animalId }: { animalId: string }) {
+  const { data, isLoading } = useAnimalEvents(animalId);
+  const del = useDeleteAnimalEvent(animalId);
 
   if (isLoading) {
     return (
