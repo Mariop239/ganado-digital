@@ -145,7 +145,7 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
           <EventTimeline vacaNumero={animal.numero} />
         </TabsContent>
         <TabsContent value="familia" className="mt-4">
-          <FamiliaTab numero={animal.numero} />
+          <FamiliaTab animal={animal} />
         </TabsContent>
       </Tabs>
 
