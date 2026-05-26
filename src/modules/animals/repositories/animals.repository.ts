@@ -34,6 +34,11 @@ export async function getAnimalByNumero(numero: string): Promise<AnimalView | nu
     .from("animals")
     .select("*")
     .eq("numero", numero)
+    // Con reuso permitido para egresados, puede haber múltiples filas con el mismo numero.
+    // Priorizamos al animal activo; si no hay, el más reciente.
+    .order("estado_actual", { ascending: true }) // 'activa' < 'fallecida'/'vendida' alfabéticamente
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   return data ? toView(data as Animal) : null;
@@ -74,13 +79,17 @@ export async function updateRelaciones(
 }
 
 export async function createAnimal(input: AnimalFormOutput): Promise<AnimalView> {
+  // Validación de unicidad a nivel app: solo bloquea si existe un animal ACTIVO con ese numero.
+  await assertNumeroDisponible(input.numero);
   const { data, error } = await supabase
     .from("animals")
     .insert(input)
     .select()
     .single();
   if (error) {
-    if (error.code === "23505") throw new Error("Ya existe un animal con ese número");
+    if (error.code === "23505") {
+      throw new Error("Este número de arete ya está en uso por un animal activo en la finca.");
+    }
     throw error;
   }
   return toView(data as Animal);
@@ -96,8 +105,31 @@ export async function updateAnimal(
     .eq("numero", numero)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Este número de arete ya está en uso por un animal activo en la finca.");
+    }
+    throw error;
+  }
   return toView(data as Animal);
+}
+
+/**
+ * Lanza error si ya existe un animal con `numero` en estado `activa`.
+ * Permite reuso si los previos están vendidos o fallecidos.
+ */
+async function assertNumeroDisponible(numero: string): Promise<void> {
+  if (!numero?.trim()) return;
+  const { data, error } = await supabase
+    .from("animals")
+    .select("id")
+    .eq("numero", numero)
+    .eq("estado_actual", "activa")
+    .limit(1);
+  if (error) throw error;
+  if (data && data.length > 0) {
+    throw new Error("Este número de arete ya está en uso por un animal activo en la finca.");
+  }
 }
 
 export async function deleteAnimal(numero: string): Promise<void> {
