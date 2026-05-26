@@ -54,12 +54,15 @@ export function FormAnimal({
           father_id: animal.father_id,
           madre_texto: animal.madre_texto,
           padre_texto: animal.padre_texto,
+          ubicacion_actual: animal.ubicacion_actual ?? "Mi rancho",
+          lote_actual: animal.lote_actual ?? "",
         }
       : {
           numero: "", nombre: "", sexo: "hembra", categoria: "vaca",
           estado_actual: "activa", estado_reproductivo: null,
           fecha_nacimiento: null, color: "", raza: "", dueno: "",
           mother_id: null, father_id: null, madre_texto: "", padre_texto: "",
+          ubicacion_actual: "Mi rancho", lote_actual: "",
           ...defaults,
         },
   });
