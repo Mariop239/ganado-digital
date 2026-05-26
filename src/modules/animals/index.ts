@@ -15,7 +15,6 @@ export { FamiliaTab } from "./components/FamiliaTab";
 export { FormAnimal } from "./components/FormAnimal";
 export { ListaAnimales } from "./components/ListaAnimales";
 export { PerfilAnimal } from "./components/PerfilAnimal";
-export { EstadoAnimalDialog } from "./components/EstadoAnimalDialog";
 export { ClasificacionAdultaDialog } from "./components/ClasificacionAdultaDialog";
 export { animalSchema } from "./schemas";
 export type { AnimalFormInput, AnimalFormOutput } from "./schemas";
