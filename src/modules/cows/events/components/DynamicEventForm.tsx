@@ -11,12 +11,13 @@ import { useCreateAnimalEvent } from "../hooks/useAnimalEvents";
 import type { AnimalEventType } from "../types/domain";
 
 type Props = {
+  animalId: string;
   vacaNumero: string;
   tipo: AnimalEventType;
   onDone: () => void;
 };
 
-export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
+export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) {
   const def = EVENT_REGISTRY[tipo];
   const fullSchema = z.object({
     fecha: z
@@ -35,7 +36,7 @@ export function DynamicEventForm({ vacaNumero, tipo, onDone }: Props) {
       payload: {} as Record<string, unknown>,
     },
   });
-  const create = useCreateAnimalEvent(vacaNumero);
+  const create = useCreateAnimalEvent(animalId, vacaNumero);
 
   const onSubmit = async (values: {
     fecha: string;

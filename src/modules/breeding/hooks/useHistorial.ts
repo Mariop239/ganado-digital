@@ -9,60 +9,57 @@ import {
 } from "../repositories/historial.repository";
 import type { ServicioInput } from "../types/domain";
 
-export function useHistorial(vacaNumero: string) {
+export function useHistorial(animalId: string) {
   return useQuery({
-    queryKey: ["historial", vacaNumero],
-    queryFn: () => listHistorial(vacaNumero),
-    enabled: !!vacaNumero,
+    queryKey: ["historial", animalId],
+    queryFn: () => listHistorial(animalId),
+    enabled: !!animalId,
   });
 }
 
-export function useCreateServicio(vacaNumero: string) {
+export function useCreateServicio(animalId: string, vacaNumero: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: ServicioInput) => createServicio(vacaNumero, input),
+    mutationFn: (input: ServicioInput) => createServicio(animalId, vacaNumero, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["historial", vacaNumero] });
-      qc.invalidateQueries({ queryKey: ["animal", vacaNumero] });
+      qc.invalidateQueries({ queryKey: ["historial", animalId] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vaca", vacaNumero] });
       qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });
 }
 
-export function useUpdateServicio(vacaNumero: string) {
+export function useUpdateServicio(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ServicioInput }) => updateServicio(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["historial", vacaNumero] });
-      qc.invalidateQueries({ queryKey: ["animal", vacaNumero] });
+      qc.invalidateQueries({ queryKey: ["historial", animalId] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vaca", vacaNumero] });
       qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });
 }
 
-export function useDeleteHistorial(vacaNumero: string) {
+export function useDeleteHistorial(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteHistorial(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", vacaNumero] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", animalId] }),
   });
 }
 
-export function useMarcarParida(vacaNumero: string) {
+export function useMarcarParida(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: MarcarParidaInput }) =>
       marcarParida(id, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["historial", vacaNumero] });
-      qc.invalidateQueries({ queryKey: ["animal", vacaNumero] });
+      qc.invalidateQueries({ queryKey: ["historial", animalId] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vaca", vacaNumero] });
       qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });

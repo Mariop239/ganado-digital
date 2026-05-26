@@ -6,11 +6,11 @@ import type {
   EventPayloadMap,
 } from "../types/domain";
 
-export async function listEventsPorVaca(vacaNumero: string): Promise<AnimalEvent[]> {
+export async function listEventsPorAnimal(animalId: string): Promise<AnimalEvent[]> {
   const { data, error } = await supabase
     .from("animal_events")
     .select("*")
-    .eq("vaca_numero", vacaNumero)
+    .eq("animal_id", animalId)
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -18,12 +18,14 @@ export async function listEventsPorVaca(vacaNumero: string): Promise<AnimalEvent
 }
 
 export async function createEvent<T extends AnimalEventType>(
+  animalId: string,
   vacaNumero: string,
   input: AnimalEventInput<T>,
 ): Promise<AnimalEvent<T>> {
   const { data, error } = await supabase
     .from("animal_events")
     .insert({
+      animal_id: animalId,
       vaca_numero: vacaNumero,
       tipo: input.tipo,
       fecha: input.fecha,
@@ -42,12 +44,12 @@ export async function deleteEvent(id: string): Promise<void> {
 }
 
 export async function listLastTerminalEvent(
-  vacaNumero: string,
+  animalId: string,
 ): Promise<AnimalEvent | null> {
   const { data, error } = await supabase
     .from("animal_events")
     .select("*")
-    .eq("vaca_numero", vacaNumero)
+    .eq("animal_id", animalId)
     .eq("is_terminal", true)
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false })

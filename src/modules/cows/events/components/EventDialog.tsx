@@ -21,6 +21,7 @@ import { DynamicEventForm } from "./DynamicEventForm";
 import type { AnimalEventType } from "../types/domain";
 
 type Props = {
+  animalId: string;
   vacaNumero: string;
   defaultTipo?: AnimalEventType;
   triggerLabel?: string;
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export function EventDialog({
+  animalId,
   vacaNumero,
   defaultTipo,
   triggerLabel = "Registrar evento",
@@ -79,6 +81,7 @@ export function EventDialog({
 
         <DynamicEventForm
           key={tipo}
+          animalId={animalId}
           vacaNumero={vacaNumero}
           tipo={tipo}
           onDone={() => setOpen(false)}

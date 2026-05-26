@@ -2,6 +2,7 @@ import type { VacunaInput } from "../schemas";
 
 export type Vacuna = {
   id: string;
+  animal_id: string | null;
   vaca_numero: string;
   fecha: string;
   vacuna_aplicada: string;

@@ -13,11 +13,11 @@ function mapEstadoServicio(estado: EstadoServicio): EstadoReproductivo | null {
   }
 }
 
-async function syncEstadoAnimal(vacaNumero: string, estado: EstadoServicio) {
+async function syncEstadoAnimal(animalId: string, estado: EstadoServicio) {
   const mapped = mapEstadoServicio(estado);
   if (!mapped) return;
   try {
-    await updateEstadoReproductivo(vacaNumero, mapped);
+    await updateEstadoReproductivo(animalId, mapped);
   } catch (e) {
     console.error("syncEstadoAnimal failed", e);
   }
@@ -43,27 +43,28 @@ function normalizeServicio(input: ServicioInput) {
   };
 }
 
-export async function listHistorial(vacaNumero: string): Promise<Historial[]> {
+export async function listHistorial(animalId: string): Promise<Historial[]> {
   const { data, error } = await supabase
     .from("historial")
     .select("*")
-    .eq("vaca_numero", vacaNumero)
+    .eq("animal_id", animalId)
     .order("fecha_monta", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Historial[];
 }
 
 export async function createServicio(
+  animalId: string,
   vacaNumero: string,
   input: ServicioInput,
 ): Promise<Historial> {
   const { data, error } = await supabase
     .from("historial")
-    .insert({ vaca_numero: vacaNumero, ...normalizeServicio(input) })
+    .insert({ animal_id: animalId, vaca_numero: vacaNumero, ...normalizeServicio(input) })
     .select()
     .single();
   if (error) throw error;
-  await syncEstadoAnimal(vacaNumero, input.estado_servicio);
+  await syncEstadoAnimal(animalId, input.estado_servicio);
   return data as Historial;
 }
 
@@ -76,7 +77,9 @@ export async function updateServicio(id: string, input: ServicioInput): Promise<
     .single();
   if (error) throw error;
   const row = data as Historial;
-  await syncEstadoAnimal(row.vaca_numero, input.estado_servicio);
+  if (row.animal_id) {
+    await syncEstadoAnimal(row.animal_id, input.estado_servicio);
+  }
   return row;
 }
 
@@ -100,7 +103,9 @@ export async function marcarParida(id: string, input: MarcarParidaInput): Promis
     .single();
   if (error) throw error;
   const row = data as Historial;
-  await syncEstadoAnimal(row.vaca_numero, "parida");
+  if (row.animal_id) {
+    await syncEstadoAnimal(row.animal_id, "parida");
+  }
   return row;
 }
 

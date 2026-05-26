@@ -61,9 +61,9 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const reactivar = useReactivarAnimal(animal.numero);
+  const reactivar = useReactivarAnimal(animal.id);
   const eliminar = useMutation({
-    mutationFn: () => deleteAnimalSafe(animal.id, animal.numero),
+    mutationFn: () => deleteAnimalSafe(animal.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animals"] });
       qc.invalidateQueries({ queryKey: ["vacas"] });
@@ -189,17 +189,17 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
         </TabsList>
         {esHembraAdulta && (
           <TabsContent value="reproduccion" className="mt-4">
-            <HistorialTabla vacaNumero={animal.numero} />
+            <HistorialTabla animalId={animal.id} vacaNumero={animal.numero} />
           </TabsContent>
         )}
         <TabsContent value="vacunas" className="mt-4">
-          <VacunasTablaVaca vacaNumero={animal.numero} />
+          <VacunasTablaVaca animalId={animal.id} vacaNumero={animal.numero} />
         </TabsContent>
         <TabsContent value="eventos" className="mt-4 space-y-4">
           <div className="flex justify-end">
-            <EventDialog vacaNumero={animal.numero} />
+            <EventDialog animalId={animal.id} vacaNumero={animal.numero} />
           </div>
-          <EventTimeline vacaNumero={animal.numero} />
+          <EventTimeline animalId={animal.id} />
         </TabsContent>
         <TabsContent value="familia" className="mt-4">
           <FamiliaTab animal={animal} />

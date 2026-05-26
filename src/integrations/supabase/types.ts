@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       animal_events: {
         Row: {
+          animal_id: string | null
           created_at: string
           fecha: string
           id: string
@@ -27,6 +28,7 @@ export type Database = {
           vaca_numero: string
         }
         Insert: {
+          animal_id?: string | null
           created_at?: string
           fecha: string
           id?: string
@@ -38,6 +40,7 @@ export type Database = {
           vaca_numero: string
         }
         Update: {
+          animal_id?: string | null
           created_at?: string
           fecha?: string
           id?: string
@@ -49,6 +52,13 @@ export type Database = {
           vaca_numero?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "animal_events_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "animal_events_vaca_numero_fkey"
             columns: ["vaca_numero"]
@@ -147,6 +157,7 @@ export type Database = {
       }
       control_vacunas: {
         Row: {
+          animal_id: string | null
           created_at: string
           enfermedad_a_prevenir: string
           fecha: string
@@ -158,6 +169,7 @@ export type Database = {
           vacuna_aplicada: string
         }
         Insert: {
+          animal_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
           fecha: string
@@ -169,6 +181,7 @@ export type Database = {
           vacuna_aplicada: string
         }
         Update: {
+          animal_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
           fecha?: string
@@ -181,6 +194,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "control_vacunas_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "control_vacunas_vaca_numero_fkey"
             columns: ["vaca_numero"]
             isOneToOne: false
@@ -191,6 +211,7 @@ export type Database = {
       }
       historial: {
         Row: {
+          animal_id: string | null
           created_at: string
           cria_animal_id: string | null
           estado_servicio: string
@@ -208,6 +229,7 @@ export type Database = {
           vaca_numero: string
         }
         Insert: {
+          animal_id?: string | null
           created_at?: string
           cria_animal_id?: string | null
           estado_servicio?: string
@@ -225,6 +247,7 @@ export type Database = {
           vaca_numero: string
         }
         Update: {
+          animal_id?: string | null
           created_at?: string
           cria_animal_id?: string | null
           estado_servicio?: string
@@ -242,6 +265,13 @@ export type Database = {
           vaca_numero?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "historial_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "historial_vaca_numero_fkey"
             columns: ["vaca_numero"]

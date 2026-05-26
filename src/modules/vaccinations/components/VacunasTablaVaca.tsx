@@ -13,7 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useDeleteVacuna, useVacunasPorVaca } from "../hooks/useVacunas";
+import { useDeleteVacuna, useVacunasPorAnimal } from "../hooks/useVacunas";
 import { FormVacuna } from "./FormVacuna";
 import { toast } from "sonner";
 
@@ -21,8 +21,10 @@ const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { local
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
 
-export function VacunasTablaVaca({ vacaNumero }: { vacaNumero: string }) {
-  const { data, isLoading } = useVacunasPorVaca(vacaNumero);
+type Props = { animalId: string; vacaNumero: string };
+
+export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
+  const { data, isLoading } = useVacunasPorAnimal(animalId);
   const del = useDeleteVacuna();
   const [openCreate, setOpenCreate] = useState(false);
 
@@ -40,7 +42,7 @@ export function VacunasTablaVaca({ vacaNumero }: { vacaNumero: string }) {
             <DialogHeader>
               <DialogTitle>Nueva vacuna para vaca #{vacaNumero}</DialogTitle>
             </DialogHeader>
-            <FormVacuna vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
+            <FormVacuna animalId={animalId} vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
           </DialogContent>
         </Dialog>
       </div>

@@ -18,13 +18,20 @@ export function useAnimals(filtros: AnimalFiltros = {}) {
   });
 }
 
-function invalidateAll(qc: ReturnType<typeof useQueryClient>, numero?: string) {
+function invalidateAll(
+  qc: ReturnType<typeof useQueryClient>,
+  keys?: { id?: string; numero?: string },
+) {
   qc.invalidateQueries({ queryKey: ["animals"] });
   qc.invalidateQueries({ queryKey: ["vacas"] });
-  if (numero) {
-    qc.invalidateQueries({ queryKey: ["animal", numero] });
-    qc.invalidateQueries({ queryKey: ["vaca", numero] });
-    qc.invalidateQueries({ queryKey: ["animal-events", numero] });
+  if (keys?.id) {
+    qc.invalidateQueries({ queryKey: ["animal-by-id", keys.id] });
+    qc.invalidateQueries({ queryKey: ["animal-events", keys.id] });
+    qc.invalidateQueries({ queryKey: ["historial", keys.id] });
+    qc.invalidateQueries({ queryKey: ["vacunas", "por-animal", keys.id] });
+  }
+  if (keys?.numero) {
+    qc.invalidateQueries({ queryKey: ["animal", keys.numero] });
   }
 }
 
@@ -32,38 +39,38 @@ export function useCreateAnimal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: AnimalFormOutput) => createAnimal(input),
-    onSuccess: (a) => invalidateAll(qc, a.numero),
+    onSuccess: (a) => invalidateAll(qc, { id: a.id, numero: a.numero }),
   });
 }
 
-export function useUpdateAnimal(numero: string) {
+export function useUpdateAnimal(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Partial<AnimalFormOutput>) => updateAnimal(numero, input),
-    onSuccess: () => invalidateAll(qc, numero),
+    mutationFn: (input: Partial<AnimalFormOutput>) => updateAnimal(id, input),
+    onSuccess: (a) => invalidateAll(qc, { id, numero: a.numero }),
   });
 }
 
-export function useMarcarEgresoAnimal(numero: string) {
+export function useMarcarEgresoAnimal(id: string, numero: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: EgresoAnimalInput) => marcarEgresoAnimal(numero, input),
-    onSuccess: () => invalidateAll(qc, numero),
+    mutationFn: (input: EgresoAnimalInput) => marcarEgresoAnimal(id, numero, input),
+    onSuccess: () => invalidateAll(qc, { id, numero }),
   });
 }
 
-export function useReactivarAnimal(numero: string) {
+export function useReactivarAnimal(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => reactivarAnimal(numero),
-    onSuccess: () => invalidateAll(qc, numero),
+    mutationFn: () => reactivarAnimal(id),
+    onSuccess: (a) => invalidateAll(qc, { id, numero: a.numero }),
   });
 }
 
 export function useDeleteAnimal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (numero: string) => deleteAnimal(numero),
+    mutationFn: (id: string) => deleteAnimal(id),
     onSuccess: () => invalidateAll(qc),
   });
 }

@@ -2,7 +2,7 @@ export { FormVacuna } from "./components/FormVacuna";
 export { VacunasTablaVaca } from "./components/VacunasTablaVaca";
 export {
   useVacunasGlobal,
-  useVacunasPorVaca,
+  useVacunasPorAnimal,
   useCreateVacuna,
   useDeleteVacuna,
 } from "./hooks/useVacunas";

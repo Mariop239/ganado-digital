@@ -26,6 +26,7 @@ export type EventPayloadMap = {
 
 export type AnimalEvent<T extends AnimalEventType = AnimalEventType> = {
   id: string;
+  animal_id: string | null;
   vaca_numero: string;
   tipo: T;
   fecha: string;

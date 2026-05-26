@@ -17,7 +17,7 @@ import {
 import { useDeleteHistorial, useHistorial, useMarcarParida } from "../hooks/useHistorial";
 import type { Historial, EstadoServicio, TipoServicio } from "../types/domain";
 import { FormHistorial } from "./FormHistorial";
-import { FormAnimal, useAnimal } from "@/modules/animals";
+import { FormAnimal, useAnimalById } from "@/modules/animals";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
@@ -41,11 +41,13 @@ const ESTADO_VARIANT: Record<EstadoServicio, "secondary" | "default" | "destruct
   parida: "outline",
 };
 
-export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
-  const { data, isLoading } = useHistorial(vacaNumero);
-  const del = useDeleteHistorial(vacaNumero);
-  const marcarParida = useMarcarParida(vacaNumero);
-  const { data: madre } = useAnimal(vacaNumero);
+type Props = { animalId: string; vacaNumero: string };
+
+export function HistorialTabla({ animalId, vacaNumero }: Props) {
+  const { data, isLoading } = useHistorial(animalId);
+  const del = useDeleteHistorial(animalId);
+  const marcarParida = useMarcarParida(animalId);
+  const { data: madre } = useAnimalById(animalId);
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Historial | null>(null);
   const [nacimientoDe, setNacimientoDe] = useState<Historial | null>(null);
@@ -64,7 +66,7 @@ export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
             <DialogHeader>
               <DialogTitle>Nuevo servicio reproductivo</DialogTitle>
             </DialogHeader>
-            <FormHistorial vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
+            <FormHistorial animalId={animalId} vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -151,7 +153,7 @@ export function HistorialTabla({ vacaNumero }: { vacaNumero: string }) {
             <DialogTitle>Editar servicio</DialogTitle>
           </DialogHeader>
           {editing && (
-            <FormHistorial vacaNumero={vacaNumero} registro={editing} onDone={() => setEditing(null)} />
+            <FormHistorial animalId={animalId} vacaNumero={vacaNumero} registro={editing} onDone={() => setEditing(null)} />
           )}
         </DialogContent>
       </Dialog>
