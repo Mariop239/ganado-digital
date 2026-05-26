@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useCreateAnimal, useUpdateAnimal } from "../hooks/useAnimals";
+import { useAnimals, useCreateAnimal, useUpdateAnimal } from "../hooks/useAnimals";
+import { ComboboxFree } from "@/components/ui/combobox-free";
 import { CATEGORIA_LABELS, SEXO_LABELS, categoriasPorSexo, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADOS_REPRODUCTIVOS, ESTADO_REPRODUCTIVO_LABELS, ESTADOS_ACTUALES, ESTADO_ACTUAL_LABELS } from "../constants/estados";
 import { SelectorAnimal } from "./SelectorAnimal";
@@ -68,6 +69,26 @@ export function FormAnimal({
   });
   const create = useCreateAnimal();
   const update = useUpdateAnimal(animal?.id ?? "");
+
+  // Opciones dinámicas para Ubicación y Lote a partir de los animales existentes.
+  const { data: animalesExistentes } = useAnimals();
+  const ubicacionOptions = Array.from(
+    new Set(
+      (animalesExistentes ?? [])
+        .map((a) => a.ubicacion_actual?.trim() ?? "")
+        .filter(Boolean),
+    ),
+  );
+  if (!ubicacionOptions.some((o) => o.toLowerCase() === "mi rancho")) {
+    ubicacionOptions.push("Mi rancho");
+  }
+  const loteOptions = Array.from(
+    new Set(
+      (animalesExistentes ?? [])
+        .map((a) => a.lote_actual?.trim() ?? "")
+        .filter(Boolean),
+    ),
+  );
 
   const sexo = form.watch("sexo");
   const categoria = form.watch("categoria");
@@ -270,25 +291,46 @@ export function FormAnimal({
           <Label htmlFor="raza" className="text-base">Raza</Label>
           <Input id="raza" className="h-12 text-base" {...form.register("raza")} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="ubicacion_actual" className="text-base">Ubicación</Label>
-          <Input
-            id="ubicacion_actual"
-            className="h-12 text-base"
-            placeholder="Mi rancho"
-            {...form.register("ubicacion_actual")}
-          />
-          <p className="text-xs text-muted-foreground">Si se deja vacío se asigna "Mi rancho".</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="lote_actual" className="text-base">Lote</Label>
-          <Input
-            id="lote_actual"
-            className="h-12 text-base"
-            placeholder="Ej. Lote A"
-            {...form.register("lote_actual")}
-          />
-        </div>
+        <Controller
+          control={form.control}
+          name="ubicacion_actual"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="ubicacion_actual" className="text-base">Ubicación</Label>
+              <ComboboxFree
+                id="ubicacion_actual"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                options={ubicacionOptions}
+                placeholder="Mi rancho"
+                emptyText="Escribe para crear una nueva ubicación"
+              />
+              <p className="text-xs text-muted-foreground">
+                Elige una existente o escribe un nombre nuevo. Si se deja vacío se asigna "Mi rancho".
+              </p>
+            </div>
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="lote_actual"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="lote_actual" className="text-base">Lote</Label>
+              <ComboboxFree
+                id="lote_actual"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                options={loteOptions}
+                placeholder="Ej. Lote A"
+                emptyText="Escribe para crear un lote nuevo"
+              />
+              <p className="text-xs text-muted-foreground">
+                Opcional. Elige uno existente o escribe un nombre nuevo.
+              </p>
+            </div>
+          )}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
