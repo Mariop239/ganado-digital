@@ -7,6 +7,7 @@ export function useUpdateRelaciones(animalId: string, numero: string) {
   return useMutation({
     mutationFn: (input: AnimalRelacionInput) => updateRelaciones(animalId, input),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animal", numero] });
       qc.invalidateQueries({ queryKey: ["animals"] });
       qc.invalidateQueries({ queryKey: ["animal-hijos"] });
