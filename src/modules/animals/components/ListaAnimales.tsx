@@ -6,9 +6,7 @@ import {
   Activity,
   Baby,
   HeartPulse,
-  Crown,
   ArrowDownRight,
-  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +25,7 @@ import { CATEGORIA_LABELS, SEXO_LABELS } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import type { Sexo, Categoria, AnimalView } from "../types/domain";
 
-type KpiKey = "todos" | "activos" | "gestantes" | "crianza" | "machos" | "egresados";
+type KpiKey = "activos" | "gestantes" | "crianza" | "egresados";
 
 type KpiDef = {
   key: KpiKey;
@@ -41,13 +39,6 @@ const CRIANZA_CATS: Categoria[] = ["ternero", "ternera", "novilla"];
 
 const KPIS: KpiDef[] = [
   {
-    key: "todos",
-    label: "Ver todos",
-    icon: LayoutGrid,
-    match: () => true,
-    accent: "text-muted-foreground",
-  },
-  {
     key: "activos",
     label: "Total activos",
     icon: Activity,
@@ -56,7 +47,7 @@ const KPIS: KpiDef[] = [
   },
   {
     key: "gestantes",
-    label: "Vacas gestantes",
+    label: "Gestantes",
     icon: HeartPulse,
     match: (a) =>
       a.estado_actual === "activa" &&
@@ -66,18 +57,11 @@ const KPIS: KpiDef[] = [
   },
   {
     key: "crianza",
-    label: "Novillas / Crianza",
+    label: "Crianza",
     icon: Baby,
     match: (a) =>
       a.estado_actual === "activa" && CRIANZA_CATS.includes(a.categoria_view),
     accent: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    key: "machos",
-    label: "Toros / Machos",
-    icon: Crown,
-    match: (a) => a.estado_actual === "activa" && a.sexo === "macho",
-    accent: "text-indigo-600 dark:text-indigo-400",
   },
   {
     key: "egresados",
@@ -93,6 +77,8 @@ export function ListaAnimales() {
   const [kpi, setKpi] = useState<KpiKey>("activos");
   const [sexo, setSexo] = useState<Sexo | "todos">("todos");
   const [categoria, setCategoria] = useState<Categoria | "todas">("todas");
+  const [ubicacion, setUbicacion] = useState<string>("todas");
+  const [lote, setLote] = useState<string>("todos");
   const [open, setOpen] = useState(false);
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
   // (incluido "Egresados") reflejen la realidad completa del rancho.
@@ -109,6 +95,24 @@ export function ListaAnimales() {
     return base;
   }, [data]);
 
+  const ubicaciones = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of data ?? []) {
+      const u = (a.ubicacion_actual ?? "").trim() || "Mi rancho";
+      set.add(u);
+    }
+    return Array.from(set).sort();
+  }, [data]);
+
+  const lotes = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of data ?? []) {
+      const l = (a.lote_actual ?? "").trim();
+      if (l) set.add(l);
+    }
+    return Array.from(set).sort();
+  }, [data]);
+
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = q.trim().toLowerCase();
@@ -116,10 +120,18 @@ export function ListaAnimales() {
     return data.filter((a) => {
       if (!kpiDef.match(a)) return false;
       if (categoria !== "todas" && a.categoria_view !== categoria) return false;
+      if (ubicacion !== "todas") {
+        const u = (a.ubicacion_actual ?? "").trim() || "Mi rancho";
+        if (u !== ubicacion) return false;
+      }
+      if (lote !== "todos") {
+        const l = (a.lote_actual ?? "").trim();
+        if (l !== lote) return false;
+      }
       if (!term) return true;
       return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
     });
-  }, [data, q, categoria, kpi]);
+  }, [data, q, categoria, kpi, ubicacion, lote]);
 
   return (
     <div className="space-y-5">
@@ -144,7 +156,7 @@ export function ListaAnimales() {
       </div>
 
       {/* KPI dashboard */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {KPIS.map(({ key, label, icon: Icon, accent }) => {
           const active = kpi === key;
           return (
@@ -179,6 +191,49 @@ export function ListaAnimales() {
             </button>
           );
         })}
+      </div>
+
+      {/* Filtros de ubicación / lote */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <Select value={ubicacion} onValueChange={setUbicacion}>
+          <SelectTrigger className="h-11 w-full sm:w-56">
+            <SelectValue placeholder="Filtrar por ubicación" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas las ubicaciones</SelectItem>
+            {ubicaciones.map((u) => (
+              <SelectItem key={u} value={u}>{u}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={lote} onValueChange={setLote}>
+          <SelectTrigger className="h-11 w-full sm:w-56">
+            <SelectValue placeholder="Filtrar por lote" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los lotes</SelectItem>
+            {lotes.length === 0 ? (
+              <SelectItem value="__none" disabled>Sin lotes registrados</SelectItem>
+            ) : (
+              lotes.map((l) => (
+                <SelectItem key={l} value={l}>{l}</SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {(ubicacion !== "todas" || lote !== "todos") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start sm:self-auto"
+            onClick={() => {
+              setUbicacion("todas");
+              setLote("todos");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">

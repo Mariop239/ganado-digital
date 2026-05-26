@@ -54,12 +54,15 @@ export function FormAnimal({
           father_id: animal.father_id,
           madre_texto: animal.madre_texto,
           padre_texto: animal.padre_texto,
+          ubicacion_actual: animal.ubicacion_actual ?? "Mi rancho",
+          lote_actual: animal.lote_actual ?? "",
         }
       : {
           numero: "", nombre: "", sexo: "hembra", categoria: "vaca",
           estado_actual: "activa", estado_reproductivo: null,
           fecha_nacimiento: null, color: "", raza: "", dueno: "",
           mother_id: null, father_id: null, madre_texto: "", padre_texto: "",
+          ubicacion_actual: "Mi rancho", lote_actual: "",
           ...defaults,
         },
   });
@@ -266,6 +269,25 @@ export function FormAnimal({
         <div className="space-y-2">
           <Label htmlFor="raza" className="text-base">Raza</Label>
           <Input id="raza" className="h-12 text-base" {...form.register("raza")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ubicacion_actual" className="text-base">Ubicación</Label>
+          <Input
+            id="ubicacion_actual"
+            className="h-12 text-base"
+            placeholder="Mi rancho"
+            {...form.register("ubicacion_actual")}
+          />
+          <p className="text-xs text-muted-foreground">Si se deja vacío se asigna "Mi rancho".</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lote_actual" className="text-base">Lote</Label>
+          <Input
+            id="lote_actual"
+            className="h-12 text-base"
+            placeholder="Ej. Lote A"
+            {...form.register("lote_actual")}
+          />
         </div>
       </div>
 
