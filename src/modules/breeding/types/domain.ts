@@ -5,6 +5,7 @@ export type EstadoServicio = "pendiente" | "prenada" | "vacia" | "parida";
 
 export type Historial = {
   id: string;
+  animal_id: string | null;
   vaca_numero: string;
   fecha_monta: string;
   toro: string;
