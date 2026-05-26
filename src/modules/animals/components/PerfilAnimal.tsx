@@ -61,9 +61,9 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const reactivar = useReactivarAnimal(animal.numero);
+  const reactivar = useReactivarAnimal(animal.id);
   const eliminar = useMutation({
-    mutationFn: () => deleteAnimalSafe(animal.id, animal.numero),
+    mutationFn: () => deleteAnimalSafe(animal.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animals"] });
       qc.invalidateQueries({ queryKey: ["vacas"] });

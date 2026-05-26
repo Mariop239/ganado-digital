@@ -96,13 +96,13 @@ export async function createAnimal(input: AnimalFormOutput): Promise<AnimalView>
 }
 
 export async function updateAnimal(
-  numero: string,
+  id: string,
   input: Partial<AnimalFormOutput>,
 ): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update(input)
-    .eq("numero", numero)
+    .eq("id", id)
     .select()
     .single();
   if (error) {
@@ -132,8 +132,8 @@ async function assertNumeroDisponible(numero: string): Promise<void> {
   }
 }
 
-export async function deleteAnimal(numero: string): Promise<void> {
-  const { error } = await supabase.from("animals").delete().eq("numero", numero);
+export async function deleteAnimal(id: string): Promise<void> {
+  const { error } = await supabase.from("animals").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -150,17 +150,16 @@ export type AnimalDeleteDeps = {
  */
 export async function checkAnimalDependencies(
   id: string,
-  numero: string,
 ): Promise<AnimalDeleteDeps> {
   const [hijos, eventos, vacunas, historial] = await Promise.all([
     supabase.from("animals").select("id", { count: "exact", head: true })
       .or(`mother_id.eq.${id},father_id.eq.${id}`),
     supabase.from("animal_events").select("id", { count: "exact", head: true })
-      .eq("vaca_numero", numero),
+      .eq("animal_id", id),
     supabase.from("control_vacunas").select("id", { count: "exact", head: true })
-      .eq("vaca_numero", numero),
+      .eq("animal_id", id),
     supabase.from("historial").select("id", { count: "exact", head: true })
-      .eq("vaca_numero", numero),
+      .eq("animal_id", id),
   ]);
   if (hijos.error) throw hijos.error;
   if (eventos.error) throw eventos.error;
@@ -178,8 +177,8 @@ export async function checkAnimalDependencies(
  * Elimina un animal por id solo si no tiene dependencias.
  * Lanza un error legible si las tiene.
  */
-export async function deleteAnimalSafe(id: string, numero: string): Promise<void> {
-  const deps = await checkAnimalDependencies(id, numero);
+export async function deleteAnimalSafe(id: string): Promise<void> {
+  const deps = await checkAnimalDependencies(id);
   const total = deps.hijos + deps.eventos + deps.vacunas + deps.historial;
   if (total > 0) {
     throw new Error(
@@ -197,11 +196,13 @@ export type EgresoAnimalInput = {
 };
 
 export async function marcarEgresoAnimal(
+  id: string,
   numero: string,
   input: EgresoAnimalInput,
 ): Promise<AnimalView> {
   // 1) Registrar evento en la timeline (informativo).
   const { error: insErr } = await supabase.from("animal_events").insert({
+    animal_id: id,
     vaca_numero: numero,
     tipo: "otro",
     fecha: input.fecha,
@@ -219,14 +220,14 @@ export async function marcarEgresoAnimal(
       fecha_egreso: input.fecha,
       motivo_egreso: input.motivo,
     })
-    .eq("numero", numero)
+    .eq("id", id)
     .select()
     .single();
   if (error) throw error;
   return toView(data as Animal);
 }
 
-export async function reactivarAnimal(numero: string): Promise<AnimalView> {
+export async function reactivarAnimal(id: string): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update({
@@ -234,7 +235,7 @@ export async function reactivarAnimal(numero: string): Promise<AnimalView> {
       fecha_egreso: null,
       motivo_egreso: null,
     })
-    .eq("numero", numero)
+    .eq("id", id)
     .select()
     .single();
   if (error) throw error;
@@ -247,7 +248,7 @@ export async function reactivarAnimal(numero: string): Promise<AnimalView> {
  * el evento ya fue creado por el caller.
  */
 export async function aplicarEgresoSinEvento(
-  numero: string,
+  id: string,
   input: { fecha: string; motivo: string; estado: "vendida" | "fallecida" },
 ): Promise<AnimalView | null> {
   const { data, error } = await supabase
@@ -257,7 +258,7 @@ export async function aplicarEgresoSinEvento(
       fecha_egreso: input.fecha,
       motivo_egreso: input.motivo,
     })
-    .eq("numero", numero)
+    .eq("id", id)
     .eq("estado_actual", "activa")
     .select()
     .maybeSingle();
@@ -266,13 +267,13 @@ export async function aplicarEgresoSinEvento(
 }
 
 export async function updateUbicacionLote(
-  numero: string,
+  id: string,
   input: { ubicacion_actual: string; lote_actual: string | null },
 ): Promise<AnimalView> {
   const { data, error } = await supabase
     .from("animals")
     .update(input)
-    .eq("numero", numero)
+    .eq("id", id)
     .select()
     .single();
   if (error) throw error;
@@ -284,13 +285,13 @@ export async function updateUbicacionLote(
  * (categoría persistida `novilla` o `vaca`). Si no aplica, devuelve null.
  */
 export async function updateEstadoReproductivo(
-  numero: string,
+  id: string,
   estado: EstadoReproductivo,
 ): Promise<AnimalView | null> {
   const { data: current, error: selErr } = await supabase
     .from("animals")
     .select("sexo, categoria")
-    .eq("numero", numero)
+    .eq("id", id)
     .maybeSingle();
   if (selErr) throw selErr;
   if (!current) return null;
@@ -300,7 +301,7 @@ export async function updateEstadoReproductivo(
   const { data, error } = await supabase
     .from("animals")
     .update({ estado_reproductivo: estado })
-    .eq("numero", numero)
+    .eq("id", id)
     .select()
     .single();
   if (error) throw error;

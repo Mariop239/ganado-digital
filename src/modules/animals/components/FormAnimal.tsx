@@ -64,7 +64,7 @@ export function FormAnimal({
         },
   });
   const create = useCreateAnimal();
-  const update = useUpdateAnimal(animal?.numero ?? "");
+  const update = useUpdateAnimal(animal?.id ?? "");
 
   const sexo = form.watch("sexo");
   const categoria = form.watch("categoria");

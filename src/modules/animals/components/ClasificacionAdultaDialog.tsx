@@ -31,7 +31,7 @@ type Props = {
 export function ClasificacionAdultaDialog({ open, onOpenChange, animal }: Props) {
   const opciones = adultasPorSexo(animal.sexo);
   const [value, setValue] = useState<CategoriaAdulta>(opciones[0]);
-  const update = useUpdateAnimal(animal.numero);
+  const update = useUpdateAnimal(animal.id);
 
   const onSave = async () => {
     try {
