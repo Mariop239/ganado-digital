@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Syringe, DollarSign, Beef, Plus } from "lucide-react";
+import { Syringe, CalendarClock, Beef, Plus, AlarmClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -74,10 +74,16 @@ function ControlSanitarioPage() {
 
   const stats = useMemo(() => {
     const rows = data ?? [];
-    const gasto = rows.reduce((s, r) => s + Number(r.gasto || 0), 0);
     const animales = new Set(rows.map((r) => r.animal_id ?? r.vaca_numero)).size;
     const programados = rows.filter((r) => r.estado_tratamiento === "programado").length;
-    return { gasto, total: rows.length, animales, programados };
+    const aplicados = rows.filter((r) => r.estado_tratamiento === "aplicado").length;
+    const hoy = new Date();
+    const proximos = rows.filter((r) => {
+      if (!r.fecha_proxima_dosis) return false;
+      const diff = differenceInCalendarDays(parseISO(r.fecha_proxima_dosis), hoy);
+      return diff >= 0 && diff <= 15;
+    }).length;
+    return { aplicados, total: rows.length, animales, programados, proximos };
   }, [data]);
 
   return (
@@ -107,21 +113,14 @@ function ControlSanitarioPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Gasto total</CardTitle>
-            <DollarSign className="h-5 w-5 text-primary" />
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{money(stats.gasto)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Registros</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tratamientos aplicados</CardTitle>
             <Syringe className="h-5 w-5 text-primary" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">{stats.aplicados}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Animales</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Animales atendidos</CardTitle>
             <Beef className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{stats.animales}</div></CardContent>
@@ -129,9 +128,16 @@ function ControlSanitarioPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Programados</CardTitle>
-            <Badge className="border-transparent bg-amber-500 text-white">Pendientes</Badge>
+            <CalendarClock className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{stats.programados}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Próximos 15 días</CardTitle>
+            <AlarmClock className="h-5 w-5 text-amber-500" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold text-amber-600">{stats.proximos}</div></CardContent>
         </Card>
       </div>
 
