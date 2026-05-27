@@ -72,18 +72,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Rancho — Vacas Paridas" },
-      { name: "description", content: "Administración de vacas paridas e historial reproductivo." },
-      { name: "author", content: "Rancho" },
-      { property: "og:title", content: "Rancho — Vacas Paridas" },
-      { property: "og:description", content: "Administración de vacas paridas e historial reproductivo." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-    ],
     links: [
       {
         rel: "stylesheet",
