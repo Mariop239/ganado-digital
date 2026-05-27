@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Beef } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({ redirect: (s.redirect as string) || "/" }),
@@ -41,10 +40,12 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Beef className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
+          <img
+            src="/icons/icon-512.png"
+            alt="Rancho Digital"
+            className="mx-auto h-16 w-16 rounded-2xl object-cover shadow-md"
+          />
+          <CardTitle className="text-2xl">Rancho Digital</CardTitle>
           <p className="text-sm text-muted-foreground">Administración del rancho</p>
         </CardHeader>
         <CardContent>
