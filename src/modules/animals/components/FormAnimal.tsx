@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { animalSchema, type AnimalFormInput, type AnimalFormOutput } from "../schemas";
 import type { Animal } from "../types/domain";
 import { Button } from "@/components/ui/button";
+import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {

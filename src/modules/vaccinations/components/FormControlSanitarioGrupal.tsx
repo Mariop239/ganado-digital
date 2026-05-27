@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -299,9 +300,10 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
       </section>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" size="lg" disabled={form.formState.isSubmitting || bulk.isPending}>
-          Registrar en {seleccionados.size || 0} animales
-        </Button>
+        <OfflineAwareSubmit
+          label={`Registrar en ${seleccionados.size || 0} animales`}
+          submitting={form.formState.isSubmitting || bulk.isPending}
+        />
       </div>
     </form>
   );
