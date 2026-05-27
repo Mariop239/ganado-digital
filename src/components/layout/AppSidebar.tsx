@@ -19,16 +19,14 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-3 py-4">
-        <Link to="/" className="flex items-center gap-2 text-primary">
-          <img
-            src="/icons/icon-192.png"
-            alt="Rancho Digital"
-            className="h-8 w-8 shrink-0 rounded-md object-cover"
-          />
-          {!collapsed && (
-            <span className="text-base font-semibold tracking-tight">Rancho Digital</span>
-          )}
-        </Link>
+        {!collapsed && (
+          <Link
+            to="/"
+            className="text-sm font-semibold tracking-tight text-primary"
+          >
+            Rancho Digital
+          </Link>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
