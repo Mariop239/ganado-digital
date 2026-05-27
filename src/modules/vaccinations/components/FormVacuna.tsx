@@ -7,7 +7,7 @@ import {
   type EstadoTratamiento,
 } from "../schemas";
 import type { VacunaInput } from "../types/domain";
-import { Button } from "@/components/ui/button";
+import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -177,9 +177,7 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" size="lg" className="min-h-12" disabled={form.formState.isSubmitting}>
-          Registrar tratamiento
-        </Button>
+        <OfflineAwareSubmit label="Registrar tratamiento" submitting={form.formState.isSubmitting} />
       </div>
     </form>
   );

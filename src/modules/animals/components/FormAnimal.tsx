@@ -3,7 +3,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { animalSchema, type AnimalFormInput, type AnimalFormOutput } from "../schemas";
 import type { Animal } from "../types/domain";
-import { Button } from "@/components/ui/button";
+import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -381,9 +381,10 @@ export function FormAnimal({
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" size="lg" className="min-h-12" disabled={form.formState.isSubmitting}>
-          {editing ? "Guardar cambios" : "Añadir animal"}
-        </Button>
+        <OfflineAwareSubmit
+          label={editing ? "Guardar cambios" : "Añadir animal"}
+          submitting={form.formState.isSubmitting}
+        />
       </div>
     </form>
   );
