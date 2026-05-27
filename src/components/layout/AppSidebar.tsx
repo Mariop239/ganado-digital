@@ -7,7 +7,7 @@ import {
 
 const items = [
   { title: "Animales", url: "/", icon: Beef },
-  { title: "Registro de Vacunas", url: "/vacunas", icon: Syringe },
+  { title: "Control Sanitario", url: "/vacunas", icon: Syringe },
 ] as const;
 
 export function AppSidebar() {
