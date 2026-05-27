@@ -153,7 +153,8 @@ export type Database = {
           animal_id: string | null
           created_at: string
           enfermedad_a_prevenir: string
-          fecha: string
+          estado_tratamiento: string
+          fecha: string | null
           fecha_proxima_dosis: string | null
           gasto: number
           id: string
@@ -167,7 +168,8 @@ export type Database = {
           animal_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
-          fecha: string
+          estado_tratamiento?: string
+          fecha?: string | null
           fecha_proxima_dosis?: string | null
           gasto?: number
           id?: string
@@ -181,7 +183,8 @@ export type Database = {
           animal_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
-          fecha?: string
+          estado_tratamiento?: string
+          fecha?: string | null
           fecha_proxima_dosis?: string | null
           gasto?: number
           id?: string

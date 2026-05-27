@@ -16,10 +16,30 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useDeleteVacuna, useVacunasPorAnimal } from "../hooks/useVacunas";
 import { FormVacuna } from "./FormVacuna";
-import { TIPO_TRATAMIENTO_LABELS, type TipoTratamiento } from "../schemas";
+import {
+  TIPO_TRATAMIENTO_LABELS,
+  ESTADO_TRATAMIENTO_LABELS,
+  type TipoTratamiento,
+  type EstadoTratamiento,
+} from "../schemas";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
+
+function EstadoBadge({ estado }: { estado: EstadoTratamiento }) {
+  if (estado === "programado") {
+    return (
+      <Badge className="border-transparent bg-amber-500 text-white hover:bg-amber-500/90">
+        {ESTADO_TRATAMIENTO_LABELS.programado}
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="border-transparent bg-emerald-600 text-white hover:bg-emerald-600/90">
+      {ESTADO_TRATAMIENTO_LABELS.aplicado}
+    </Badge>
+  );
+}
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
 
@@ -76,6 +96,7 @@ export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Tipo</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead>Producto / Medicamento</TableHead>
               <TableHead>Fecha aplicación</TableHead>
               <TableHead>Próxima dosis</TableHead>
@@ -86,10 +107,10 @@ export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
             )}
             {!isLoading && (data?.length ?? 0) === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Sin tratamientos registrados.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Sin tratamientos registrados.</TableCell></TableRow>
             )}
             {data?.map((r) => (
               <TableRow key={r.id}>
@@ -98,6 +119,7 @@ export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
                     {TIPO_TRATAMIENTO_LABELS[r.tipo_tratamiento as TipoTratamiento] ?? r.tipo_tratamiento}
                   </Badge>
                 </TableCell>
+                <TableCell><EstadoBadge estado={r.estado_tratamiento} /></TableCell>
                 <TableCell className="font-medium">{r.vacuna_aplicada}</TableCell>
                 <TableCell>{fmt(r.fecha)}</TableCell>
                 <TableCell><ProximaDosisBadge fecha={r.fecha_proxima_dosis} /></TableCell>

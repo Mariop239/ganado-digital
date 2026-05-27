@@ -1,11 +1,12 @@
-import type { VacunaInput, TipoTratamiento } from "../schemas";
+import type { VacunaInput, TipoTratamiento, EstadoTratamiento } from "../schemas";
 
 export type Vacuna = {
   id: string;
   animal_id: string | null;
   vaca_numero: string;
   tipo_tratamiento: TipoTratamiento;
-  fecha: string;
+  estado_tratamiento: EstadoTratamiento;
+  fecha: string | null;
   vacuna_aplicada: string;
   enfermedad_a_prevenir: string;
   gasto: number;
@@ -19,4 +20,4 @@ export type VacunaConVaca = Vacuna & {
   vacas: { numero: string; nombre: string } | null;
 };
 
-export type { VacunaInput, TipoTratamiento };
+export type { VacunaInput, TipoTratamiento, EstadoTratamiento };
