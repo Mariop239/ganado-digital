@@ -21,8 +21,8 @@ export function useCreateVacuna(animalId: string, vacaNumero: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: VacunaInput) => createVacuna(animalId, vacaNumero, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["vacunas"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["vacunas"], refetchType: "active" });
     },
   });
 }
