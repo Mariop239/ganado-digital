@@ -25,6 +25,7 @@ export type Database = {
           payload: Json
           tipo: Database["public"]["Enums"]["animal_event_type"]
           updated_at: string
+          user_id: string | null
           vaca_numero: string
         }
         Insert: {
@@ -37,6 +38,7 @@ export type Database = {
           payload?: Json
           tipo: Database["public"]["Enums"]["animal_event_type"]
           updated_at?: string
+          user_id?: string | null
           vaca_numero: string
         }
         Update: {
@@ -49,6 +51,7 @@ export type Database = {
           payload?: Json
           tipo?: Database["public"]["Enums"]["animal_event_type"]
           updated_at?: string
+          user_id?: string | null
           vaca_numero?: string
         }
         Relationships: [
@@ -84,6 +87,7 @@ export type Database = {
           sexo: string
           ubicacion_actual: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           categoria: string
@@ -107,6 +111,7 @@ export type Database = {
           sexo: string
           ubicacion_actual?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           categoria?: string
@@ -130,6 +135,7 @@ export type Database = {
           sexo?: string
           ubicacion_actual?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -161,6 +167,7 @@ export type Database = {
           observaciones: string | null
           tipo_tratamiento: string
           updated_at: string
+          user_id: string | null
           vaca_numero: string
           vacuna_aplicada: string
         }
@@ -176,6 +183,7 @@ export type Database = {
           observaciones?: string | null
           tipo_tratamiento?: string
           updated_at?: string
+          user_id?: string | null
           vaca_numero: string
           vacuna_aplicada: string
         }
@@ -191,6 +199,7 @@ export type Database = {
           observaciones?: string | null
           tipo_tratamiento?: string
           updated_at?: string
+          user_id?: string | null
           vaca_numero?: string
           vacuna_aplicada?: string
         }
@@ -221,6 +230,7 @@ export type Database = {
           tipo_servicio: string
           toro: string
           updated_at: string
+          user_id: string | null
           vaca_numero: string
         }
         Insert: {
@@ -239,6 +249,7 @@ export type Database = {
           tipo_servicio?: string
           toro?: string
           updated_at?: string
+          user_id?: string | null
           vaca_numero: string
         }
         Update: {
@@ -257,6 +268,7 @@ export type Database = {
           tipo_servicio?: string
           toro?: string
           updated_at?: string
+          user_id?: string | null
           vaca_numero?: string
         }
         Relationships: [
@@ -282,6 +294,7 @@ export type Database = {
           padre: string
           raza: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           color?: string
@@ -295,6 +308,7 @@ export type Database = {
           padre?: string
           raza?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           color?: string
@@ -308,6 +322,7 @@ export type Database = {
           padre?: string
           raza?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
