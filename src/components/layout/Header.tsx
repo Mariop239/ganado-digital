@@ -29,8 +29,13 @@ export function Header() {
       <div className="flex w-full items-center justify-between gap-2 px-4 py-3">
         <div className="flex items-center gap-2">
           <SidebarTrigger className="min-h-11 min-w-11" />
+          <img
+            src="/icons/icon-192.png"
+            alt="Rancho Digital"
+            className="h-8 w-8 rounded-md object-cover"
+          />
           <span className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-            Rancho · Vacas Paridas
+            Rancho Digital
           </span>
         </div>
         <Button variant="ghost" size="lg" onClick={logout} className="min-h-12">
