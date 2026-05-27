@@ -381,9 +381,10 @@ export function FormAnimal({
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" size="lg" className="min-h-12" disabled={form.formState.isSubmitting}>
-          {editing ? "Guardar cambios" : "Añadir animal"}
-        </Button>
+        <OfflineAwareSubmit
+          label={editing ? "Guardar cambios" : "Añadir animal"}
+          submitting={form.formState.isSubmitting}
+        />
       </div>
     </form>
   );
