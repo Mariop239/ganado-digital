@@ -1,8 +1,5 @@
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
 import {
   vacunaSchema,
   TIPO_TRATAMIENTO_LABELS,
@@ -14,14 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ComboboxFree } from "@/components/ui/combobox-free";
-import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useCreateVacuna, useVacunasGlobal } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
@@ -112,7 +107,20 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
         {estado === "aplicado" && (
           <div className="space-y-2">
             <Label htmlFor="fecha" className="text-base">Fecha de aplicación *</Label>
-            <Input id="fecha" type="date" className="h-12 text-base" {...form.register("fecha")} />
+            <Controller
+              control={form.control}
+              name="fecha"
+              render={({ field }) => (
+                <DatePicker
+                  id="fecha"
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? "")}
+                  placeholder="Selecciona la fecha"
+                  disableFuture
+                  clearable={false}
+                />
+              )}
+            />
             {err("fecha")}
           </div>
         )}
@@ -151,42 +159,14 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
           <Controller
             control={form.control}
             name="fecha_proxima_dosis"
-            render={({ field }) => {
-              const dateValue = field.value ? parseISO(field.value) : undefined;
-              return (
-                <div className="flex gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "h-12 flex-1 justify-start text-left text-base font-normal",
-                          !dateValue && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateValue ? format(dateValue, "PPP", { locale: es }) : "Sin programar"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateValue}
-                        onSelect={(d) => field.onChange(d ? format(d, "yyyy-MM-dd") : null)}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {field.value && (
-                    <Button type="button" variant="ghost" onClick={() => field.onChange(null)}>
-                      Limpiar
-                    </Button>
-                  )}
-                </div>
-              );
-            }}
+            render={({ field }) => (
+              <DatePicker
+                value={field.value ?? null}
+                onChange={field.onChange}
+                placeholder="Sin programar"
+                disablePast
+              />
+            )}
           />
           {err("fecha_proxima_dosis")}
         </div>

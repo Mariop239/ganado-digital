@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useAnimals, useCreateAnimal, useUpdateAnimal } from "../hooks/useAnimals";
 import { ComboboxFree } from "@/components/ui/combobox-free";
+import { DatePicker } from "@/components/ui/date-picker";
 import { CATEGORIA_LABELS, SEXO_LABELS, categoriasPorSexo, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADOS_REPRODUCTIVOS, ESTADO_REPRODUCTIVO_LABELS, ESTADOS_ACTUALES, ESTADO_ACTUAL_LABELS } from "../constants/estados";
 import { SelectorAnimal } from "./SelectorAnimal";
@@ -271,12 +272,19 @@ export function FormAnimal({
 
         <div className="space-y-2">
           <Label htmlFor="fecha_nacimiento" className="text-base">Fecha de nacimiento</Label>
-          <Input
-            id="fecha_nacimiento" type="date" className="h-12 text-base"
-            disabled={locked("fecha_nacimiento")}
-            {...form.register("fecha_nacimiento", {
-              setValueAs: (v) => (v === "" ? null : v),
-            })}
+          <Controller
+            control={form.control}
+            name="fecha_nacimiento"
+            render={({ field }) => (
+              <DatePicker
+                id="fecha_nacimiento"
+                value={field.value ?? null}
+                onChange={field.onChange}
+                placeholder="Selecciona una fecha"
+                disabled={locked("fecha_nacimiento")}
+                disableFuture
+              />
+            )}
           />
         </div>
         <div className="space-y-2">

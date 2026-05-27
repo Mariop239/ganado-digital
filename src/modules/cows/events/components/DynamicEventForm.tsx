@@ -11,6 +11,7 @@ import { useCreateAnimalEvent } from "../hooks/useAnimalEvents";
 import type { AnimalEventType } from "../types/domain";
 import { useAnimals } from "@/modules/animals/hooks/useAnimals";
 import { ComboboxFree } from "@/components/ui/combobox-free";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useMemo } from "react";
 
 type Props = {
@@ -151,7 +152,20 @@ export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) 
 
       <div className="space-y-2">
         <Label htmlFor="fecha" className="text-base">Fecha *</Label>
-        <Input id="fecha" type="date" className="h-12 text-base" {...form.register("fecha")} />
+        <Controller
+          control={form.control}
+          name="fecha"
+          render={({ field }) => (
+            <DatePicker
+              id="fecha"
+              value={field.value || null}
+              onChange={(v) => field.onChange(v ?? "")}
+              placeholder="Selecciona la fecha del evento"
+              disableFuture
+              clearable={false}
+            />
+          )}
+        />
         {form.formState.errors.fecha && (
           <p className="text-sm text-destructive">
             {String(form.formState.errors.fecha.message ?? "")}
