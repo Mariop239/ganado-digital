@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useCreateServicio, useUpdateServicio } from "../hooks/useHistorial";
 import { toast } from "sonner";
 
@@ -142,7 +143,20 @@ export function FormHistorial({ animalId, vacaNumero, registro, onDone }: Props)
 
         <div className="space-y-2">
           <Label htmlFor="fecha_monta" className="text-base">Fecha de servicio *</Label>
-          <Input id="fecha_monta" type="date" className="h-12 text-base" {...form.register("fecha_monta")} />
+          <Controller
+            control={form.control}
+            name="fecha_monta"
+            render={({ field }) => (
+              <DatePicker
+                id="fecha_monta"
+                value={field.value || null}
+                onChange={(v) => field.onChange(v ?? "")}
+                placeholder="Selecciona la fecha"
+                disableFuture
+                clearable={false}
+              />
+            )}
+          />
           {err("fecha_monta")}
         </div>
 
@@ -150,12 +164,19 @@ export function FormHistorial({ animalId, vacaNumero, registro, onDone }: Props)
           <Label htmlFor="fecha_confirmacion" className="text-base">
             Fecha de confirmación de preñez
           </Label>
-          <Input
-            id="fecha_confirmacion"
-            type="date"
-            className="h-12 text-base"
-            disabled={esVacia}
-            {...form.register("fecha_confirmacion")}
+          <Controller
+            control={form.control}
+            name="fecha_confirmacion"
+            render={({ field }) => (
+              <DatePicker
+                id="fecha_confirmacion"
+                value={field.value || null}
+                onChange={(v) => field.onChange(v ?? "")}
+                placeholder="Sin confirmación"
+                disabled={esVacia}
+                disableFuture
+              />
+            )}
           />
           <p className="text-xs text-muted-foreground">
             Opcional. Al ingresarla, el estado pasa a "Confirmado preñada".
