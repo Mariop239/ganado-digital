@@ -22,7 +22,11 @@ export function useCreateVacuna(animalId: string, vacaNumero: string) {
   return useMutation({
     mutationFn: (input: VacunaInput) => createVacuna(animalId, vacaNumero, input),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["vacunas"], refetchType: "active" });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["vacunas"], refetchType: "active" }),
+        qc.refetchQueries({ queryKey: ["vacunas", "global"], type: "active" }),
+        qc.refetchQueries({ queryKey: ["vacunas", "por-animal", animalId], type: "active" }),
+      ]);
     },
   });
 }
@@ -46,7 +50,10 @@ export function useDeleteVacuna() {
   return useMutation({
     mutationFn: (id: string) => deleteVacuna(id),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["vacunas"], refetchType: "active" });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["vacunas"], refetchType: "active" }),
+        qc.refetchQueries({ queryKey: ["vacunas", "global"], type: "active" }),
+      ]);
     },
   });
 }

@@ -40,16 +40,27 @@ export function ComboboxFree({
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
-  const normalized = options
-    .map((o) => o?.trim())
-    .filter((o): o is string => !!o)
-    .filter((o, i, arr) => arr.findIndex((x) => x.toLowerCase() === o.toLowerCase()) === i)
-    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const normalized = React.useMemo(
+    () =>
+      options
+        .map((o) => o?.trim())
+        .filter((o): o is string => !!o)
+        .filter(
+          (o, i, arr) =>
+            arr.findIndex((x) => x.toLowerCase() === o.toLowerCase()) === i,
+        )
+        .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })),
+    [options],
+  );
 
   const trimmedQuery = query.trim();
+  const lowerQuery = trimmedQuery.toLowerCase();
+  const filtered = trimmedQuery
+    ? normalized.filter((o) => o.toLowerCase().includes(lowerQuery))
+    : normalized;
   const exists =
     !!trimmedQuery &&
-    normalized.some((o) => o.toLowerCase() === trimmedQuery.toLowerCase());
+    normalized.some((o) => o.toLowerCase() === lowerQuery);
 
   const commit = (v: string) => {
     onChange(v);
@@ -78,14 +89,16 @@ export function ComboboxFree({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={placeholder}
             value={query}
             onValueChange={setQuery}
           />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            {filtered.length === 0 && !trimmedQuery && (
+              <CommandEmpty>{emptyText}</CommandEmpty>
+            )}
             {trimmedQuery && !exists && (
               <CommandGroup heading="Nuevo">
                 <CommandItem
@@ -97,9 +110,9 @@ export function ComboboxFree({
                 </CommandItem>
               </CommandGroup>
             )}
-            {normalized.length > 0 && (
+            {filtered.length > 0 && (
               <CommandGroup heading="Existentes">
-                {normalized.map((opt) => (
+                {filtered.map((opt) => (
                   <CommandItem key={opt} value={opt} onSelect={() => commit(opt)}>
                     <Check
                       className={cn(
