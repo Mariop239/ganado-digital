@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useAnimals, useCreateAnimal, useUpdateAnimal } from "../hooks/useAnimals";
 import { ComboboxFree } from "@/components/ui/combobox-free";
+import { MultiComboboxFree } from "@/components/ui/multi-combobox-free";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CATEGORIA_LABELS, SEXO_LABELS, categoriasPorSexo, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADOS_REPRODUCTIVOS, ESTADO_REPRODUCTIVO_LABELS, ESTADOS_ACTUALES, ESTADO_ACTUAL_LABELS } from "../constants/estados";
@@ -51,7 +52,7 @@ export function FormAnimal({
           fecha_nacimiento: animal.fecha_nacimiento,
           color: animal.color,
           raza: animal.raza,
-          dueno: animal.dueno,
+          dueno: animal.dueno ?? [],
           mother_id: animal.mother_id,
           father_id: animal.father_id,
           madre_texto: animal.madre_texto,
@@ -62,7 +63,7 @@ export function FormAnimal({
       : {
           numero: "", nombre: "", sexo: "hembra", categoria: "vaca",
           estado_actual: "activa", estado_reproductivo: null,
-          fecha_nacimiento: null, color: "", raza: "", dueno: "",
+          fecha_nacimiento: null, color: "", raza: "", dueno: [],
           mother_id: null, father_id: null, madre_texto: "", padre_texto: "",
           ubicacion_actual: "Mi rancho", lote_actual: "",
           ...defaults,
@@ -87,6 +88,14 @@ export function FormAnimal({
     new Set(
       (animalesExistentes ?? [])
         .map((a) => a.lote_actual?.trim() ?? "")
+        .filter(Boolean),
+    ),
+  );
+  const duenoOptions = Array.from(
+    new Set(
+      (animalesExistentes ?? [])
+        .flatMap((a) => a.dueno ?? [])
+        .map((d) => d?.trim() ?? "")
         .filter(Boolean),
     ),
   );
@@ -287,10 +296,26 @@ export function FormAnimal({
             )}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="dueno" className="text-base">Dueño</Label>
-          <Input id="dueno" className="h-12 text-base" {...form.register("dueno")} />
-        </div>
+        <Controller
+          control={form.control}
+          name="dueno"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="dueno" className="text-base">Dueño</Label>
+              <MultiComboboxFree
+                id="dueno"
+                value={(field.value as string[]) ?? []}
+                onChange={field.onChange}
+                options={duenoOptions}
+                placeholder="Selecciona o añade dueños…"
+                emptyText="Escribe para añadir un dueño nuevo"
+              />
+              <p className="text-xs text-muted-foreground">
+                Puedes seleccionar uno o varios dueños.
+              </p>
+            </div>
+          )}
+        />
         <div className="space-y-2">
           <Label htmlFor="color" className="text-base">Color</Label>
           <Input id="color" className="h-12 text-base" {...form.register("color")} />
