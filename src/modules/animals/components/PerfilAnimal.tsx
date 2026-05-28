@@ -32,7 +32,7 @@ import { CATEGORIA_LABELS, SEXO_LABELS, aplicaEstadoReproductivo } from "../cons
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import { HistorialTabla } from "@/modules/breeding";
 import { VacunasTablaVaca } from "@/modules/vaccinations";
-import { EventTimeline, EventDialog } from "@/modules/cows/events";
+import { EventTimeline, EventDialog } from "@/modules/animals/events";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
