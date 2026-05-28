@@ -66,7 +66,7 @@ function ControlSanitarioPage() {
       if (tipo !== "todos" && r.tipo_tratamiento !== tipo) return false;
       if (producto !== "todos" && r.vacuna_aplicada !== producto) return false;
       if (!s) return true;
-      return [r.vaca_numero, r.vacas?.nombre, r.vacuna_aplicada, r.enfermedad_a_prevenir]
+      return [r.animals?.numero, r.animals?.nombre, r.vacuna_aplicada, r.enfermedad_a_prevenir]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(s));
     });
@@ -74,7 +74,7 @@ function ControlSanitarioPage() {
 
   const stats = useMemo(() => {
     const rows = data ?? [];
-    const animales = new Set(rows.map((r) => r.animal_id ?? r.vaca_numero)).size;
+    const animales = new Set(rows.map((r) => r.animal_id ?? r.animals?.numero)).size;
     const programados = rows.filter((r) => r.estado_tratamiento === "programado").length;
     const aplicados = rows.filter((r) => r.estado_tratamiento === "aplicado").length;
     const hoy = new Date();
@@ -195,7 +195,7 @@ function ControlSanitarioPage() {
             {filtered.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">
-                  #{r.vaca_numero}{r.vacas?.nombre ? ` — ${r.vacas.nombre}` : ""}
+                  #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">

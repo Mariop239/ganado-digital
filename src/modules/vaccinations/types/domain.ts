@@ -3,7 +3,6 @@ import type { VacunaInput, TipoTratamiento, EstadoTratamiento } from "../schemas
 export type Vacuna = {
   id: string;
   animal_id: string | null;
-  vaca_numero: string;
   tipo_tratamiento: TipoTratamiento;
   estado_tratamiento: EstadoTratamiento;
   fecha: string | null;
@@ -17,7 +16,7 @@ export type Vacuna = {
 };
 
 export type VacunaConVaca = Vacuna & {
-  vacas: { numero: string; nombre: string } | null;
+  animals: { numero: string; nombre: string } | null;
 };
 
 export type { VacunaInput, TipoTratamiento, EstadoTratamiento };
