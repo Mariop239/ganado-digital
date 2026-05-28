@@ -216,6 +216,7 @@ export type Database = {
           fecha_confirmacion: string | null
           fecha_destete: string | null
           fecha_monta: string
+          fecha_palpado: string | null
           fecha_parto: string | null
           fecha_probable_parto: string | null
           id: string
@@ -234,6 +235,7 @@ export type Database = {
           fecha_confirmacion?: string | null
           fecha_destete?: string | null
           fecha_monta: string
+          fecha_palpado?: string | null
           fecha_parto?: string | null
           fecha_probable_parto?: string | null
           id?: string
@@ -252,6 +254,7 @@ export type Database = {
           fecha_confirmacion?: string | null
           fecha_destete?: string | null
           fecha_monta?: string
+          fecha_palpado?: string | null
           fecha_parto?: string | null
           fecha_probable_parto?: string | null
           id?: string
