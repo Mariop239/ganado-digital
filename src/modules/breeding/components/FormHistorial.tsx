@@ -11,6 +11,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { ComboboxFree } from "@/components/ui/combobox-free";
+import { useAnimals } from "@/modules/animals/hooks/useAnimals";
 import { useCreateServicio, useUpdateServicio } from "../hooks/useHistorial";
 import { toast } from "sonner";
 
@@ -54,6 +56,7 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
           toro: registro.toro ?? "",
           fecha_monta: registro.fecha_monta,
           fecha_confirmacion: registro.fecha_confirmacion ?? "",
+          fecha_palpado: registro.fecha_palpado ?? "",
           estado_servicio:
             registro.estado_servicio === "parida" ? "prenada" : registro.estado_servicio,
           observaciones: registro.observaciones ?? "",
@@ -63,6 +66,7 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
           toro: "",
           fecha_monta: "",
           fecha_confirmacion: "",
+          fecha_palpado: "",
           estado_servicio: "pendiente",
           observaciones: "",
         },
@@ -70,6 +74,17 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
   const create = useCreateServicio(animalId);
   const update = useUpdateServicio(animalId);
 
+  // Sugerencias de toros: animales machos activos del rancho.
+  const { data: machos } = useAnimals({ sexo: "macho" });
+  const toroOptions = (machos ?? [])
+    .filter((m) => m.estado_actual === "activa")
+    .map((m) => {
+      const nombre = m.nombre?.trim();
+      return nombre ? `${m.numero} · ${nombre}` : m.numero;
+    });
+
+  const tipoServicio = form.watch("tipo_servicio");
+  const esInseminacion = tipoServicio === "inseminacion";
   const fechaMonta = form.watch("fecha_monta");
   const fechaConfirmacion = form.watch("fecha_confirmacion");
   const estadoActual = form.watch("estado_servicio");
@@ -90,6 +105,13 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
       form.setValue("fecha_confirmacion", "", { shouldValidate: true });
     }
   }, [esVacia, hasConfirmacion, form]);
+
+  // Si el tipo deja de ser inseminación → limpia fecha de palpado.
+  useEffect(() => {
+    if (!esInseminacion) {
+      form.setValue("fecha_palpado", "", { shouldValidate: false });
+    }
+  }, [esInseminacion, form]);
 
   const onSubmit = async (values: ServicioFormInput) => {
     try {
@@ -134,11 +156,27 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
           )}
         />
 
-        <div className="space-y-2">
-          <Label htmlFor="toro" className="text-base">Toro / Pajuela</Label>
-          <Input id="toro" className="h-12 text-base" {...form.register("toro")} />
-          {err("toro")}
-        </div>
+        <Controller
+          control={form.control}
+          name="toro"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label htmlFor="toro" className="text-base">Toro / Pajuela</Label>
+              <ComboboxFree
+                id="toro"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                options={toroOptions}
+                placeholder="Buscar toro o escribir pajuela…"
+                emptyText="Sin coincidencias — escribe para usar texto libre"
+              />
+              <p className="text-xs text-muted-foreground">
+                Sugerencias del rancho. Puedes escribir un toro externo o pajuela libremente.
+              </p>
+              {err("toro")}
+            </div>
+          )}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="fecha_monta" className="text-base">Fecha de servicio *</Label>
@@ -182,6 +220,31 @@ export function FormHistorial({ animalId, registro, onDone }: Props) {
           </p>
           {err("fecha_confirmacion")}
         </div>
+
+        {esInseminacion && (
+          <div className="space-y-2">
+            <Label htmlFor="fecha_palpado" className="text-base">
+              Fecha de palpado
+            </Label>
+            <Controller
+              control={form.control}
+              name="fecha_palpado"
+              render={({ field }) => (
+                <DatePicker
+                  id="fecha_palpado"
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? "")}
+                  placeholder="Sin palpado"
+                  disableFuture
+                />
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Opcional. Solo aplica en inseminación artificial.
+            </p>
+            {err("fecha_palpado")}
+          </div>
+        )}
 
         {!esVacia && (
           <div className="space-y-2 sm:col-span-2">

@@ -12,6 +12,11 @@ export const servicioSchema = z.object({
     .optional()
     .nullable()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  fecha_palpado: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
   estado_servicio: estadoServicioSchema.default("pendiente"),
   observaciones: z.string().trim().max(1000).default(""),
 }).superRefine((d, ctx) => {
@@ -26,6 +31,20 @@ export const servicioSchema = z.object({
     ctx.addIssue({
       code: "custom",
       path: ["fecha_confirmacion"],
+      message: "Debe ser posterior a la fecha de servicio",
+    });
+  }
+  if (d.fecha_palpado && d.tipo_servicio !== "inseminacion") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["fecha_palpado"],
+      message: "Solo aplica a inseminación",
+    });
+  }
+  if (d.fecha_palpado && d.fecha_palpado < d.fecha_monta) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["fecha_palpado"],
       message: "Debe ser posterior a la fecha de servicio",
     });
   }
