@@ -19,11 +19,6 @@ export const observacionPayloadSchema = z.object({
   texto: z.string().trim().min(1, "Requerido").max(1000),
 });
 
-export const tratamientoPayloadSchema = z.object({
-  tratamiento: z.string().trim().min(1, "Requerido").max(200),
-  dosis: z.string().trim().max(100).optional(),
-});
-
 export const otroPayloadSchema = z.object({
   motivo: z.string().trim().min(1, "Requerido").max(300),
 });
@@ -32,5 +27,4 @@ export type VentaPayload = z.infer<typeof ventaPayloadSchema>;
 export type FallecimientoPayload = z.infer<typeof fallecimientoPayloadSchema>;
 export type TrasladoPayload = z.infer<typeof trasladoPayloadSchema>;
 export type ObservacionPayload = z.infer<typeof observacionPayloadSchema>;
-export type TratamientoPayload = z.infer<typeof tratamientoPayloadSchema>;
 export type OtroPayload = z.infer<typeof otroPayloadSchema>;

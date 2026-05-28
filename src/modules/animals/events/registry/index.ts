@@ -3,7 +3,6 @@ import {
   Skull,
   Truck,
   Eye,
-  Stethoscope,
   FileText,
   type LucideIcon,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import {
   fallecimientoPayloadSchema,
   trasladoPayloadSchema,
   observacionPayloadSchema,
-  tratamientoPayloadSchema,
   otroPayloadSchema,
 } from "../schemas/payloads";
 import type { AnimalEventType, EventPayloadMap } from "../types/domain";
@@ -88,19 +86,6 @@ export const EVENT_REGISTRY: Registry = {
     schema: observacionPayloadSchema,
     fields: [{ name: "texto", label: "Observación", kind: "textarea", required: true }],
     summarize: (p) => p.texto,
-  },
-  tratamiento: {
-    tipo: "tratamiento",
-    label: "Tratamiento médico",
-    description: "Aplicación de tratamiento médico (no vacuna).",
-    icon: Stethoscope,
-    isTerminal: false,
-    schema: tratamientoPayloadSchema,
-    fields: [
-      { name: "tratamiento", label: "Tratamiento", kind: "text", required: true },
-      { name: "dosis", label: "Dosis", kind: "text" },
-    ],
-    summarize: (p) => (p.dosis ? `${p.tratamiento} (${p.dosis})` : p.tratamiento),
   },
   otro: {
     tipo: "otro",

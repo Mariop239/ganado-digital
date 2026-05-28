@@ -3,7 +3,6 @@ import type {
   FallecimientoPayload,
   TrasladoPayload,
   ObservacionPayload,
-  TratamientoPayload,
   OtroPayload,
 } from "../schemas/payloads";
 
@@ -12,7 +11,6 @@ export type AnimalEventType =
   | "fallecimiento"
   | "traslado"
   | "observacion"
-  | "tratamiento"
   | "otro";
 
 export type EventPayloadMap = {
@@ -20,7 +18,6 @@ export type EventPayloadMap = {
   fallecimiento: FallecimientoPayload;
   traslado: TrasladoPayload;
   observacion: ObservacionPayload;
-  tratamiento: TratamientoPayload;
   otro: OtroPayload;
 };
 
