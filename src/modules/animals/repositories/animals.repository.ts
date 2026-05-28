@@ -203,7 +203,6 @@ export async function marcarEgresoAnimal(
   // 1) Registrar evento en la timeline (informativo).
   const { error: insErr } = await supabase.from("animal_events").insert({
     animal_id: id,
-    vaca_numero: numero,
     tipo: "otro",
     fecha: input.fecha,
     payload: { motivo: input.motivo, estado: input.estado },

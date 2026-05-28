@@ -86,7 +86,7 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
     }
     const objetivos = (animales ?? [])
       .filter((a) => seleccionados.has(a.id))
-      .map((a) => ({ animal_id: a.id, vaca_numero: a.numero }));
+      .map((a) => ({ animal_id: a.id }));
     try {
       const n = await bulk.mutateAsync({ animales: objetivos, input: values });
       toast.success(`Registrado en ${n} animales`);
