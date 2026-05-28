@@ -23,9 +23,9 @@ export function useCreateVacuna(animalId: string) {
     mutationFn: (input: VacunaInput) => createVacuna(animalId, input),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
-      await qc.invalidateQueries({ queryKey: ["animalEvents"] });
+      await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
-      await qc.invalidateQueries({ queryKey: ["animales"] });
+      await qc.invalidateQueries({ queryKey: ["animals"] });
     },
   });
 }
@@ -37,9 +37,9 @@ export function useCreateVacunasBulk() {
       createVacunasBulk(vars.animales, vars.input),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
-      await qc.invalidateQueries({ queryKey: ["animalEvents"] });
+      await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
-      await qc.invalidateQueries({ queryKey: ["animales"] });
+      await qc.invalidateQueries({ queryKey: ["animals"] });
     },
   });
 }
@@ -50,9 +50,9 @@ export function useDeleteVacuna() {
     mutationFn: (id: string) => deleteVacuna(id),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
-      await qc.invalidateQueries({ queryKey: ["animalEvents"] });
+      await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
-      await qc.invalidateQueries({ queryKey: ["animales"] });
+      await qc.invalidateQueries({ queryKey: ["animals"] });
     },
   });
 }

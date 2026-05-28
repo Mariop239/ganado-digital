@@ -25,7 +25,6 @@ export function useCreateServicio(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });
 }
@@ -38,7 +37,6 @@ export function useUpdateServicio(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });
 }
@@ -60,7 +58,6 @@ export function useMarcarParida(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
     },
   });
 }

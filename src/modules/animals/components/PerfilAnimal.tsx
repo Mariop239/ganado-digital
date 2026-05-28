@@ -66,7 +66,6 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
     mutationFn: () => deleteAnimalSafe(animal.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animals"] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
       toast.success("Registro eliminado");
       navigate({ to: "/" });
     },

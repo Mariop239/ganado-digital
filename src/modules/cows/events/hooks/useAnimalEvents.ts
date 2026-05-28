@@ -53,7 +53,6 @@ export function useCreateAnimalEvent(animalId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animal-events", animalId] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
     },
@@ -67,7 +66,7 @@ export function useDeleteAnimalEvent(animalId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animal-events", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
-      qc.invalidateQueries({ queryKey: ["vacas"] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
     },
   });
 }
