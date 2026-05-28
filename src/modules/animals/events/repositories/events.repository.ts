@@ -21,17 +21,10 @@ export async function createEvent<T extends AnimalEventType>(
   animalId: string,
   input: AnimalEventInput<T>,
 ): Promise<AnimalEvent<T>> {
-  const { data: animal, error: aErr } = await supabase
-    .from("animals")
-    .select("numero")
-    .eq("id", animalId)
-    .single();
-  if (aErr) throw aErr;
   const { data, error } = await supabase
     .from("animal_events")
     .insert({
       animal_id: animalId,
-      vaca_numero: animal.numero,
       tipo: input.tipo,
       fecha: input.fecha,
       payload: input.payload as EventPayloadMap[T],
