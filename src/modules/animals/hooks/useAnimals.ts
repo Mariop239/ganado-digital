@@ -23,7 +23,6 @@ function invalidateAll(
   keys?: { id?: string; numero?: string },
 ) {
   qc.invalidateQueries({ queryKey: ["animals"] });
-  qc.invalidateQueries({ queryKey: ["vacas"] });
   if (keys?.id) {
     qc.invalidateQueries({ queryKey: ["animal-by-id", keys.id] });
     qc.invalidateQueries({ queryKey: ["animal-events", keys.id] });
