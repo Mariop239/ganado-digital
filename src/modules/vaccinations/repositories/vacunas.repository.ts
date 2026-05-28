@@ -18,7 +18,7 @@ function normalize(input: VacunaInput) {
 export async function listVacunasGlobal(): Promise<VacunaConVaca[]> {
   const { data, error } = await supabase
     .from("control_vacunas")
-    .select("*, vacas(numero, nombre)")
+    .select("*, animals(numero, nombre)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as VacunaConVaca[];
@@ -38,22 +38,16 @@ export async function createVacuna(
   animalId: string,
   input: VacunaInput,
 ): Promise<Vacuna> {
-  const { data: animal, error: aErr } = await supabase
-    .from("animals")
-    .select("numero")
-    .eq("id", animalId)
-    .single();
-  if (aErr) throw aErr;
   const { data, error } = await supabase
     .from("control_vacunas")
-    .insert({ animal_id: animalId, vaca_numero: animal.numero, ...normalize(input) })
+    .insert({ animal_id: animalId, ...normalize(input) })
     .select()
     .single();
   if (error) throw error;
   return data as Vacuna;
 }
 
-export type AnimalTarget = { animal_id: string; vaca_numero: string };
+export type AnimalTarget = { animal_id: string };
 
 export async function createVacunasBulk(
   animales: AnimalTarget[],
@@ -63,7 +57,6 @@ export async function createVacunasBulk(
   const payload = normalize(input);
   const rows = animales.map((a) => ({
     animal_id: a.animal_id,
-    vaca_numero: a.vaca_numero,
     ...payload,
   }));
   const { error, count } = await supabase
