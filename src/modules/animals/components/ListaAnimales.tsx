@@ -79,6 +79,7 @@ export function ListaAnimales() {
   const [categoria, setCategoria] = useState<Categoria | "todas">("todas");
   const [ubicacion, setUbicacion] = useState<string>("todas");
   const [lote, setLote] = useState<string>("todos");
+  const [dueno, setDueno] = useState<string>("todos");
   const [causa, setCausa] = useState<"todas" | "vendida" | "fallecida">("todas");
   const [open, setOpen] = useState(false);
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
@@ -107,9 +108,13 @@ export function ListaAnimales() {
           if (l !== lote) return false;
         }
       }
+      if (dueno !== "todos") {
+        const owners = (a.dueno ?? []).map((d) => d.trim()).filter(Boolean);
+        if (!owners.some((o) => o.toLowerCase() === dueno.toLowerCase())) return false;
+      }
       return true;
     });
-  }, [data, ubicacion, lote, causa, isEgresados]);
+  }, [data, ubicacion, lote, causa, dueno, isEgresados]);
 
   const counts = useMemo(() => {
     const base = Object.fromEntries(KPIS.map((k) => [k.key, 0])) as Record<KpiKey, number>;
@@ -135,6 +140,19 @@ export function ListaAnimales() {
       if (l) set.add(l);
     }
     return Array.from(set).sort();
+  }, [data]);
+
+  const duenos = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of data ?? []) {
+      for (const d of a.dueno ?? []) {
+        const t = d?.trim();
+        if (t) set.add(t);
+      }
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
   }, [data]);
 
   const filtered = useMemo(() => {
@@ -263,7 +281,22 @@ export function ListaAnimales() {
                 )}
               </SelectContent>
             </Select>
-            {(ubicacion !== "todas" || lote !== "todos") && (
+            <Select value={dueno} onValueChange={setDueno}>
+              <SelectTrigger className="h-11 w-full sm:w-56">
+                <SelectValue placeholder="Filtrar por dueño" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los dueños</SelectItem>
+                {duenos.length === 0 ? (
+                  <SelectItem value="__none" disabled>Sin dueños registrados</SelectItem>
+                ) : (
+                  duenos.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {(ubicacion !== "todas" || lote !== "todos" || dueno !== "todos") && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -271,6 +304,7 @@ export function ListaAnimales() {
                 onClick={() => {
                   setUbicacion("todas");
                   setLote("todos");
+                  setDueno("todos");
                 }}
               >
                 Limpiar filtros
