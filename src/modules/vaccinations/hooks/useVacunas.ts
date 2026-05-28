@@ -17,10 +17,10 @@ export function useVacunasPorAnimal(animalId: string) {
   });
 }
 
-export function useCreateVacuna(animalId: string, vacaNumero: string) {
+export function useCreateVacuna(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: VacunaInput) => createVacuna(animalId, vacaNumero, input),
+    mutationFn: (input: VacunaInput) => createVacuna(animalId, input),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
       await qc.invalidateQueries({ queryKey: ["animalEvents"] });

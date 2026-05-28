@@ -19,14 +19,19 @@ export async function listEventsPorAnimal(animalId: string): Promise<AnimalEvent
 
 export async function createEvent<T extends AnimalEventType>(
   animalId: string,
-  vacaNumero: string,
   input: AnimalEventInput<T>,
 ): Promise<AnimalEvent<T>> {
+  const { data: animal, error: aErr } = await supabase
+    .from("animals")
+    .select("numero")
+    .eq("id", animalId)
+    .single();
+  if (aErr) throw aErr;
   const { data, error } = await supabase
     .from("animal_events")
     .insert({
       animal_id: animalId,
-      vaca_numero: vacaNumero,
+      vaca_numero: animal.numero,
       tipo: input.tipo,
       fecha: input.fecha,
       payload: input.payload as EventPayloadMap[T],

@@ -18,11 +18,11 @@ export function useAnimalEvents(animalId: string) {
   });
 }
 
-export function useCreateAnimalEvent(animalId: string, vacaNumero: string) {
+export function useCreateAnimalEvent(animalId: string) {
   const qc = useQueryClient();
   return useMutation<unknown, Error, AnimalEventInput>({
     mutationFn: async (input) => {
-      const evt = await createEvent(animalId, vacaNumero, input);
+      const evt = await createEvent(animalId, input);
       if (input.tipo === "traslado") {
         const payload = input.payload as { destino: string; lote?: string };
         try {
@@ -53,7 +53,6 @@ export function useCreateAnimalEvent(animalId: string, vacaNumero: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["animal-events", animalId] });
-      qc.invalidateQueries({ queryKey: ["vaca", vacaNumero] });
       qc.invalidateQueries({ queryKey: ["vacas"] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });

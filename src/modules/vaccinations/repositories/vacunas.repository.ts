@@ -36,12 +36,17 @@ export async function listVacunasPorAnimal(animalId: string): Promise<Vacuna[]> 
 
 export async function createVacuna(
   animalId: string,
-  vacaNumero: string,
   input: VacunaInput,
 ): Promise<Vacuna> {
+  const { data: animal, error: aErr } = await supabase
+    .from("animals")
+    .select("numero")
+    .eq("id", animalId)
+    .single();
+  if (aErr) throw aErr;
   const { data, error } = await supabase
     .from("control_vacunas")
-    .insert({ animal_id: animalId, vaca_numero: vacaNumero, ...normalize(input) })
+    .insert({ animal_id: animalId, vaca_numero: animal.numero, ...normalize(input) })
     .select()
     .single();
   if (error) throw error;

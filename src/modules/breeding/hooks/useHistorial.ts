@@ -17,10 +17,10 @@ export function useHistorial(animalId: string) {
   });
 }
 
-export function useCreateServicio(animalId: string, vacaNumero: string) {
+export function useCreateServicio(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: ServicioInput) => createServicio(animalId, vacaNumero, input),
+    mutationFn: (input: ServicioInput) => createServicio(animalId, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
