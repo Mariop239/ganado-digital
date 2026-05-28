@@ -26,7 +26,6 @@ export type Database = {
           tipo: Database["public"]["Enums"]["animal_event_type"]
           updated_at: string
           user_id: string | null
-          vaca_numero: string
         }
         Insert: {
           animal_id?: string | null
@@ -39,7 +38,6 @@ export type Database = {
           tipo: Database["public"]["Enums"]["animal_event_type"]
           updated_at?: string
           user_id?: string | null
-          vaca_numero: string
         }
         Update: {
           animal_id?: string | null
@@ -52,7 +50,6 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["animal_event_type"]
           updated_at?: string
           user_id?: string | null
-          vaca_numero?: string
         }
         Relationships: [
           {
@@ -168,7 +165,6 @@ export type Database = {
           tipo_tratamiento: string
           updated_at: string
           user_id: string | null
-          vaca_numero: string
           vacuna_aplicada: string
         }
         Insert: {
@@ -184,7 +180,6 @@ export type Database = {
           tipo_tratamiento?: string
           updated_at?: string
           user_id?: string | null
-          vaca_numero: string
           vacuna_aplicada: string
         }
         Update: {
@@ -200,7 +195,6 @@ export type Database = {
           tipo_tratamiento?: string
           updated_at?: string
           user_id?: string | null
-          vaca_numero?: string
           vacuna_aplicada?: string
         }
         Relationships: [
@@ -231,7 +225,6 @@ export type Database = {
           toro: string
           updated_at: string
           user_id: string | null
-          vaca_numero: string
         }
         Insert: {
           animal_id?: string | null
@@ -250,7 +243,6 @@ export type Database = {
           toro?: string
           updated_at?: string
           user_id?: string | null
-          vaca_numero: string
         }
         Update: {
           animal_id?: string | null
@@ -269,7 +261,6 @@ export type Database = {
           toro?: string
           updated_at?: string
           user_id?: string | null
-          vaca_numero?: string
         }
         Relationships: [
           {
@@ -280,51 +271,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      vacas: {
-        Row: {
-          color: string
-          created_at: string
-          dueno: string
-          fecha_egreso: string | null
-          madre: string
-          motivo_egreso: string | null
-          nombre: string
-          numero: string
-          padre: string
-          raza: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          dueno?: string
-          fecha_egreso?: string | null
-          madre?: string
-          motivo_egreso?: string | null
-          nombre?: string
-          numero: string
-          padre?: string
-          raza?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          dueno?: string
-          fecha_egreso?: string | null
-          madre?: string
-          motivo_egreso?: string | null
-          nombre?: string
-          numero?: string
-          padre?: string
-          raza?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {
