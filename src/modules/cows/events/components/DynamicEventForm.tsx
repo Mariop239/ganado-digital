@@ -16,7 +16,6 @@ import { useMemo } from "react";
 
 type Props = {
   animalId: string;
-  vacaNumero: string;
   tipo: AnimalEventType;
   onDone: () => void;
 };
@@ -63,7 +62,7 @@ function sanitizePayload(
   return clean;
 }
 
-export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) {
+export function DynamicEventForm({ animalId, tipo, onDone }: Props) {
   const def = EVENT_REGISTRY[tipo];
   const { data: animals } = useAnimals();
   const { ubicacionOptions, loteOptions } = useMemo(() => {
@@ -97,7 +96,7 @@ export function DynamicEventForm({ animalId, vacaNumero, tipo, onDone }: Props) 
       payload: {} as Record<string, unknown>,
     },
   });
-  const create = useCreateAnimalEvent(animalId, vacaNumero);
+  const create = useCreateAnimalEvent(animalId);
 
   const onSubmit = async (values: {
     fecha: string;

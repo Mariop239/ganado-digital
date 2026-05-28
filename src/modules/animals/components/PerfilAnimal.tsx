@@ -189,15 +189,15 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
         </TabsList>
         {esHembraAdulta && (
           <TabsContent value="reproduccion" className="mt-4">
-            <HistorialTabla animalId={animal.id} vacaNumero={animal.numero} />
+            <HistorialTabla animalId={animal.id} />
           </TabsContent>
         )}
         <TabsContent value="vacunas" className="mt-4">
-          <VacunasTablaVaca animalId={animal.id} vacaNumero={animal.numero} />
+          <VacunasTablaVaca animalId={animal.id} />
         </TabsContent>
         <TabsContent value="eventos" className="mt-4 space-y-4">
           <div className="flex justify-end">
-            <EventDialog animalId={animal.id} vacaNumero={animal.numero} />
+            <EventDialog animalId={animal.id} />
           </div>
           <EventTimeline animalId={animal.id} />
         </TabsContent>
