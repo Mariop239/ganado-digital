@@ -65,9 +65,9 @@ function ProximaDosisBadge({ fecha }: { fecha: string | null }) {
   );
 }
 
-type Props = { animalId: string; vacaNumero: string };
+type Props = { animalId: string };
 
-export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
+export function VacunasTablaVaca({ animalId }: Props) {
   const { data, isLoading } = useVacunasPorAnimal(animalId);
   const del = useDeleteVacuna();
   const [openCreate, setOpenCreate] = useState(false);
@@ -84,9 +84,9 @@ export function VacunasTablaVaca({ animalId, vacaNumero }: Props) {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Registrar Tratamiento Sanitario — #{vacaNumero}</DialogTitle>
+              <DialogTitle>Registrar Tratamiento Sanitario</DialogTitle>
             </DialogHeader>
-            <FormVacuna animalId={animalId} vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
+            <FormVacuna animalId={animalId} onDone={() => setOpenCreate(false)} />
           </DialogContent>
         </Dialog>
       </div>

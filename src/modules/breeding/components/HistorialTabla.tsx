@@ -41,9 +41,9 @@ const ESTADO_VARIANT: Record<EstadoServicio, "secondary" | "default" | "destruct
   parida: "outline",
 };
 
-type Props = { animalId: string; vacaNumero: string };
+type Props = { animalId: string };
 
-export function HistorialTabla({ animalId, vacaNumero }: Props) {
+export function HistorialTabla({ animalId }: Props) {
   const { data, isLoading } = useHistorial(animalId);
   const del = useDeleteHistorial(animalId);
   const marcarParida = useMarcarParida(animalId);
@@ -66,7 +66,7 @@ export function HistorialTabla({ animalId, vacaNumero }: Props) {
             <DialogHeader>
               <DialogTitle>Nuevo servicio reproductivo</DialogTitle>
             </DialogHeader>
-            <FormHistorial animalId={animalId} vacaNumero={vacaNumero} onDone={() => setOpenCreate(false)} />
+            <FormHistorial animalId={animalId} onDone={() => setOpenCreate(false)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -153,7 +153,7 @@ export function HistorialTabla({ animalId, vacaNumero }: Props) {
             <DialogTitle>Editar servicio</DialogTitle>
           </DialogHeader>
           {editing && (
-            <FormHistorial animalId={animalId} vacaNumero={vacaNumero} registro={editing} onDone={() => setEditing(null)} />
+            <FormHistorial animalId={animalId} registro={editing} onDone={() => setEditing(null)} />
           )}
         </DialogContent>
       </Dialog>

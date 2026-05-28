@@ -55,12 +55,17 @@ export async function listHistorial(animalId: string): Promise<Historial[]> {
 
 export async function createServicio(
   animalId: string,
-  vacaNumero: string,
   input: ServicioInput,
 ): Promise<Historial> {
+  const { data: animal, error: aErr } = await supabase
+    .from("animals")
+    .select("numero")
+    .eq("id", animalId)
+    .single();
+  if (aErr) throw aErr;
   const { data, error } = await supabase
     .from("historial")
-    .insert({ animal_id: animalId, vaca_numero: vacaNumero, ...normalizeServicio(input) })
+    .insert({ animal_id: animalId, vaca_numero: animal.numero, ...normalizeServicio(input) })
     .select()
     .single();
   if (error) throw error;

@@ -22,11 +22,10 @@ import { toast } from "sonner";
 
 type Props = {
   animalId: string;
-  vacaNumero: string;
   onDone: () => void;
 };
 
-export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
+export function FormVacuna({ animalId, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
@@ -40,7 +39,7 @@ export function FormVacuna({ animalId, vacaNumero, onDone }: Props) {
       fecha_proxima_dosis: null,
     },
   });
-  const create = useCreateVacuna(animalId, vacaNumero);
+  const create = useCreateVacuna(animalId);
   const { data: globales } = useVacunasGlobal();
   const productoOptions = (globales ?? [])
     .map((g) => g.vacuna_aplicada)

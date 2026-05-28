@@ -16,7 +16,6 @@ import { toast } from "sonner";
 
 type Props = {
   animalId: string;
-  vacaNumero: string;
   registro?: Historial;
   onDone: () => void;
 };
@@ -45,7 +44,7 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function FormHistorial({ animalId, vacaNumero, registro, onDone }: Props) {
+export function FormHistorial({ animalId, registro, onDone }: Props) {
   const editing = !!registro;
   const form = useForm<ServicioFormInput>({
     resolver: zodResolver(servicioSchema),
@@ -68,7 +67,7 @@ export function FormHistorial({ animalId, vacaNumero, registro, onDone }: Props)
           observaciones: "",
         },
   });
-  const create = useCreateServicio(animalId, vacaNumero);
+  const create = useCreateServicio(animalId);
   const update = useUpdateServicio(animalId);
 
   const fechaMonta = form.watch("fecha_monta");
