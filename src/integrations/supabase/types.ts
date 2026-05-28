@@ -66,7 +66,7 @@ export type Database = {
           categoria: string
           color: string
           created_at: string
-          dueno: string
+          dueno: string[]
           estado_actual: string
           estado_reproductivo: string | null
           father_id: string | null
@@ -90,7 +90,7 @@ export type Database = {
           categoria: string
           color?: string
           created_at?: string
-          dueno?: string
+          dueno?: string[]
           estado_actual?: string
           estado_reproductivo?: string | null
           father_id?: string | null
@@ -114,7 +114,7 @@ export type Database = {
           categoria?: string
           color?: string
           created_at?: string
-          dueno?: string
+          dueno?: string[]
           estado_actual?: string
           estado_reproductivo?: string | null
           father_id?: string | null

@@ -48,7 +48,7 @@ const rows = (a: AnimalView): Array<[string, string]> => [
       : CATEGORIA_LABELS[a.categoria_view],
   ],
   ["Fecha de nacimiento", fmt(a.fecha_nacimiento)],
-  ["Dueño", a.dueno || "—"],
+  ["Dueño", a.dueno && a.dueno.length > 0 ? a.dueno.join(", ") : "—"],
   ["Ubicación actual", a.ubicacion_actual || "Por definir"],
   ["Lote/Grupo", a.lote_actual || "Sin lote"],
   ["Color", a.color || "—"],

@@ -27,7 +27,7 @@ export type Animal = {
   fecha_nacimiento: string | null;
   color: string;
   raza: string;
-  dueno: string;
+  dueno: string[];
   mother_id: string | null;
   father_id: string | null;
   madre_texto: string;
