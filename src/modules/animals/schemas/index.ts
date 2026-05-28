@@ -44,7 +44,7 @@ export const animalSchema = z
     fecha_nacimiento: z.string().nullable().optional(),
     color: z.string().trim().max(50).default(""),
     raza: z.string().trim().max(50).default(""),
-    dueno: z.string().trim().max(100).default(""),
+    dueno: z.array(z.string().trim().min(1).max(100)).default([]),
     mother_id: z.string().uuid().nullable().optional(),
     father_id: z.string().uuid().nullable().optional(),
     madre_texto: z.string().trim().max(120).default(""),
