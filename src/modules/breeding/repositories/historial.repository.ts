@@ -39,6 +39,8 @@ function normalizeServicio(input: ServicioInput) {
     fecha_probable_parto:
       input.estado_servicio === "vacia" ? null : addDays(input.fecha_monta, 283),
     fecha_confirmacion: input.fecha_confirmacion ?? null,
+    fecha_palpado:
+      input.tipo_servicio === "inseminacion" ? input.fecha_palpado ?? null : null,
     observaciones: input.observaciones || null,
   };
 }
