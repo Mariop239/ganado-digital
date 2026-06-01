@@ -37,9 +37,10 @@ export function useAlertasCrianza() {
       const { data, error } = await supabase
         .from("historial")
         .select(
-          "id, animal_id, toro, fecha_monta, fecha_probable_parto, fecha_parto, fecha_destete, animals!inner(numero, nombre, estado_actual)",
+          "id, animal_id, toro, estado_servicio, fecha_monta, fecha_probable_parto, fecha_parto, fecha_destete, animals!inner(numero, nombre, estado_actual)",
         )
-        .eq("animals.estado_actual", "activa");
+        .eq("animals.estado_actual", "activa")
+        .in("estado_servicio", ["pendiente", "prenada", "parida"]);
       if (error) throw error;
 
       const alertas: AlertaCrianza[] = [];
@@ -51,7 +52,13 @@ export function useAlertasCrianza() {
           animal_nombre: r.animals?.nombre ?? "",
           toro: (r.toro ?? null) as string | null,
         };
+        if (r.estado_servicio === "vacia") {
+          continue;
+        }
         if (!r.fecha_parto) {
+          if (r.estado_servicio !== "pendiente" && r.estado_servicio !== "prenada") {
+            continue;
+          }
           const fecha =
             r.fecha_probable_parto ??
             (r.fecha_monta ? addDays(r.fecha_monta, GESTACION_DIAS) : null);
