@@ -8,6 +8,7 @@ export {
   useCreateVacunasBulk,
   useDeleteVacuna,
 } from "./hooks/useVacunas";
+export { useGastoSanitarioMes } from "./hooks/useGastoSanitarioMes";
 export {
   vacunaSchema,
   TIPO_TRATAMIENTO_LABELS,
