@@ -154,6 +154,7 @@ export type Database = {
       control_vacunas: {
         Row: {
           animal_id: string | null
+          batch_id: string | null
           created_at: string
           enfermedad_a_prevenir: string
           estado_tratamiento: string
@@ -169,6 +170,7 @@ export type Database = {
         }
         Insert: {
           animal_id?: string | null
+          batch_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
           estado_tratamiento?: string
@@ -184,6 +186,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string | null
+          batch_id?: string | null
           created_at?: string
           enfermedad_a_prevenir?: string
           estado_tratamiento?: string

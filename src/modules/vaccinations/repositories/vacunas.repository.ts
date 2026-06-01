@@ -52,18 +52,20 @@ export type AnimalTarget = { animal_id: string };
 export async function createVacunasBulk(
   animales: AnimalTarget[],
   input: VacunaInput,
-): Promise<number> {
-  if (animales.length === 0) return 0;
+): Promise<{ count: number; batchId: string | null }> {
+  if (animales.length === 0) return { count: 0, batchId: null };
   const payload = normalize(input);
+  const batchId = animales.length > 1 ? crypto.randomUUID() : null;
   const rows = animales.map((a) => ({
     animal_id: a.animal_id,
     ...payload,
+    batch_id: batchId,
   }));
   const { error, count } = await supabase
     .from("control_vacunas")
     .insert(rows, { count: "exact" });
   if (error) throw error;
-  return count ?? rows.length;
+  return { count: count ?? rows.length, batchId };
 }
 
 export async function deleteVacuna(id: string): Promise<void> {

@@ -88,8 +88,8 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
       .filter((a) => seleccionados.has(a.id))
       .map((a) => ({ animal_id: a.id }));
     try {
-      const n = await bulk.mutateAsync({ animales: objetivos, input: values });
-      toast.success(`Registrado en ${n} animales`);
+      const { count } = await bulk.mutateAsync({ animales: objetivos, input: values });
+      toast.success(`Registrado en ${count} animales`);
       onDone();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error al guardar");

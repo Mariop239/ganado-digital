@@ -1,118 +1,95 @@
-## Cambios al plan anterior
+# Sistema de lotes para registros sanitarios
 
-Incorpora las 5 correcciones solicitadas. El resto del plan (atajos en alertas + invalidación global) se mantiene.
+Agrupar los registros creados desde el formulario grupal bajo un mismo `batch_id`, y mostrarlos colapsados en la tabla global de Control Sanitario.
 
----
+## Fase A — Base de datos (migración)
 
-### 1. Acción rápida de Parto — reutilizar el flujo de "Registrar nacimiento"
+Añadir columna `batch_id uuid NULL` a `public.control_vacunas` + índice.
 
-`FormHistorial` NO sirve (crea servicios, no actualiza partos). El flujo correcto ya existe en `HistorialTabla.tsx` (líneas 161–196): abre `FormAnimal` para crear la cría con `mother_id` precargado y, en `onAfterCreate`, dispara `useMarcarParida` con el `historial.id` y el `cria_animal_id` recién creado.
-
-Aplicar exactamente ese mismo patrón en `Dashboard.tsx`:
-
-- Al clic en "Registrar" de una `CrianzaRow` tipo `parto`, abrir un `Dialog` "Registrar nacimiento" que renderiza `FormAnimal` con:
-  - `defaults`: `mother_id`, `madre_texto`, `padre_texto` (toro del historial), `fecha_nacimiento = hoy`, `sexo: "hembra"`, `categoria: "ternera"`.
-  - `lockedFields: ["mother_id", "madre_texto", "padre_texto"]`.
-  - `onAfterCreate`: llama a `useMarcarParida(animalId).mutateAsync({ id: historialId, input: { fecha_parto, sexo_cria, cria_animal_id } })`.
-- Para tener `toro`/`madre`, el hook `useAlertasCrianza` debe exponer:
-  - `historial_id` (raw, no concatenado).
-  - `toro: string | null` (del registro de historial).
-
-Nota P3/P4: el animal madre no muta; solo se actualiza el `historial` correspondiente y se crea una nueva cría como entidad estable.
-
----
-
-### 2. `useMarcarDestetado` — sintaxis correcta
-
-```ts
-// src/modules/breeding/hooks/useMarcarDestetado.ts
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-
-export function useMarcarDestetado() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (historialId: string) => {
-      const hoy = new Date().toISOString().slice(0, 10);
-      const { error } = await supabase
-        .from("historial")
-        .update({ fecha_destete: hoy })
-        .eq("id", historialId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["historial"] });
-      qc.invalidateQueries({ queryKey: ["animals"] });
-    },
-  });
-}
+```sql
+ALTER TABLE public.control_vacunas ADD COLUMN batch_id uuid NULL;
+CREATE INDEX idx_control_vacunas_batch_id ON public.control_vacunas(batch_id);
 ```
 
-Exportar desde `src/modules/breeding/index.ts`. Confirmación previa vía `AlertDialog` ("¿Confirmar destete de #045?") y `toast` de éxito/error en el componente que lo invoca.
+- Nullable: los registros individuales (creados desde `FormVacuna` o desde la acción rápida del Dashboard) siguen sin batch.
+- No se toca RLS (la columna hereda las políticas existentes scoped a `user_id`).
+- Sin backfill: los registros previos quedan como individuales (`batch_id = NULL`), que es lo correcto desde el dominio.
 
----
+Tras aprobar la migración, se regenera `src/integrations/supabase/types.ts` automáticamente.
 
-### 3. Invalidación global consistente
+## Fase B — Repositorio + hook de bulk
 
-Añadir `qc.invalidateQueries({ queryKey: ["dashboard"] })` en el `onSuccess` de TODAS estas mutaciones (mantener las invalidaciones existentes):
+**`src/modules/vaccinations/repositories/vacunas.repository.ts`**
+- `createVacunasBulk(animales, input)` genera un `batch_id = crypto.randomUUID()` y lo incluye en cada row del `insert`. Devuelve `{ count, batchId }` (en lugar de solo `count`) para que el caller pueda mostrar feedback o navegar.
+- `createVacuna` (individual) y `FormVacuna` NO asignan batch_id.
+- `listVacunasGlobal` ya hace `select("*")`, así que `batch_id` viene incluido sin cambios.
 
-- `src/modules/vaccinations/hooks/useVacunas.ts`: `useCreateVacuna`, `useCreateVacunasBulk`, `useDeleteVacuna`.
-- `src/modules/breeding/hooks/useHistorial.ts`: `useCreateServicio`, `useUpdateServicio`, `useMarcarParida`, **`useDeleteHistorial`** (incluido explícitamente).
-- `useMarcarDestetado` (nuevo, ya incluido).
+**`src/modules/vaccinations/types/domain.ts`**
+- Añadir `batch_id: string | null` al tipo `Vacuna`.
 
-La invalidación por prefijo `["dashboard"]` cubre `alertas-crianza`, `alertas-sanitarias-globales`, `nacimientos-mes` y `gasto-sanitario-mes` (todos comparten ese prefijo en sus query keys actuales).
+**`src/modules/vaccinations/hooks/useVacunas.ts`**
+- Ajustar la firma de `useCreateVacunasBulk` para devolver `{ count, batchId }`. La invalidación de `["dashboard"]`, `["vacunas"]` ya está en su sitio.
 
----
+## Fase C — UI agrupada en `/vacunas`
 
-### 4. Estado del diálogo extendido — incluir `historialId`
+Toda la lógica vive en `src/routes/_authenticated/vacunas.tsx`. No se toca el módulo `dashboard`, ni `FormControlSanitarioGrupal` (su contrato `onDone()` se mantiene).
 
-Reemplazar:
+### Modelo de fila agrupada
+
+Derivado en memoria desde `data` (no requiere segunda query):
 
 ```ts
-type DialogKey = null | "animal" | "vacuna" | "parto";
-const [open, setOpen] = useState<DialogKey>(null);
+type GroupRow =
+  | { kind: "single"; vacuna: VacunaConVaca }
+  | {
+      kind: "batch";
+      batch_id: string;
+      fecha: string | null;
+      fecha_proxima_dosis: string | null;
+      tipo_tratamiento: TipoTratamiento;
+      estado_tratamiento: EstadoTratamiento;
+      vacuna_aplicada: string;
+      gasto_total: number;
+      animales_count: number;
+      items: VacunaConVaca[];
+    };
 ```
 
-por:
+Reglas:
+- Recorrer `filtered`; agrupar por `batch_id` cuando no sea null.
+- Para cada lote: tomar campos comunes del primer item (fecha, producto, tipo, estado — son idénticos por construcción del bulk), sumar `gasto`, contar items.
+- Filtros existentes (`q`, `tipo`, `producto`) se aplican ANTES del agrupado: si un filtro de búsqueda matchea solo un animal del lote, el lote completo se muestra (el search por número/nombre de animal sigue funcionando porque al menos un item matchea).
 
-```ts
-type DialogState =
-  | { tipo: "animal" }
-  | { tipo: "vacuna-grupal" }                                  // acción rápida del header
-  | { tipo: "vacuna-rapida"; animalId: string }                // desde alerta sanitaria
-  | { tipo: "parto-selector" }                                 // acción rápida del header
-  | { tipo: "parto"; animalId: string; historialId: string; toro: string | null; madreLabel: string };
+### Renderizado
 
-const [dialog, setDialog] = useState<DialogState | null>(null);
-```
+Reemplazar el `<TableBody>` actual por filas según `GroupRow`:
 
-- `historialId` se necesita en `parto` (para `marcarParida`) y se pasa al `AlertDialog` de destete (como argumento directo de `useMarcarDestetado.mutate`).
-- `animalId` se necesita para `vacuna-rapida` y `parto`.
-- El flujo grupal/selector del header NO lleva contexto.
+- **Single** → fila idéntica a la actual.
+- **Batch** → fila con:
+  - Botón chevron (`ChevronRight` / `ChevronDown`) en una celda extra al inicio.
+  - Columna Animal: badge `Lote · N animales` + `vacuna_aplicada`.
+  - Resto de columnas: tipo, producto, estado, fecha, próxima, **gasto total** (suma).
+  - Al expandir: filas hijas (una por animal) renderizadas debajo con `<TableRow>` de fondo `bg-muted/30`, mostrando `#numero — nombre` y gasto individual. Estado de expansión local: `const [expanded, setExpanded] = useState<Set<string>>(new Set())` con key = `batch_id`.
 
----
+- Añadir un thead-column extra al principio (vacío) para alinear el chevron. Las filas single dejan esa celda vacía.
 
-### 5. `FormVacuna` — inicializar fecha en hoy
+KPIs actuales (`stats`): no se modifican — siguen contando registros individuales, que es lo correcto (un lote de 20 vacunas = 20 tratamientos aplicados).
 
-En `src/modules/vaccinations/components/FormVacuna.tsx`, cambiar el `defaultValues.fecha` de `""` a `new Date().toISOString().slice(0, 10)`. Sin cambios adicionales — el `DatePicker` ya acepta ese formato.
+## Archivos a tocar
 
-Esto alinea el formulario individual con el grupal (`FormControlSanitarioGrupal`) y agiliza la acción rápida sanitaria del Dashboard.
+- migración SQL (nueva)
+- `src/modules/vaccinations/types/domain.ts`
+- `src/modules/vaccinations/repositories/vacunas.repository.ts`
+- `src/modules/vaccinations/hooks/useVacunas.ts`
+- `src/routes/_authenticated/vacunas.tsx`
 
----
+## No se toca
 
-## Archivos a tocar (resumen actualizado)
+- `FormVacuna.tsx`, `FormControlSanitarioGrupal.tsx` (su contrato externo no cambia).
+- Dashboard / alertas sanitarias (los lotes se ven como N tratamientos individuales en alertas, que es correcto: cada animal tiene su próxima dosis propia).
+- Perfil del animal / `VacunasTablaVaca` (a nivel animal cada registro sigue siendo una fila — no tiene sentido agrupar dentro de un mismo animal).
 
-- `src/modules/dashboard/components/Dashboard.tsx` — estado `DialogState`, botones por fila, integración con `FormAnimal` para parto, `AlertDialog` para destete.
-- `src/modules/vaccinations/hooks/useVacunas.ts` — añadir invalidate `["dashboard"]` en los 3 hooks.
-- `src/modules/vaccinations/components/FormVacuna.tsx` — `fecha` default = hoy.
-- `src/modules/breeding/hooks/useHistorial.ts` — añadir invalidate `["dashboard"]` en los 4 hooks (incluyendo `useDeleteHistorial`).
-- `src/modules/breeding/hooks/useMarcarDestetado.ts` — **nuevo**.
-- `src/modules/breeding/hooks/useAlertasCrianza.ts` — exponer `historial_id` y `toro` en `AlertaCrianza`.
-- `src/modules/breeding/index.ts` — exportar `useMarcarDestetado`.
+## Riesgos / decisiones explícitas
 
-## Riesgos
-
-- `useDeleteHistorial` actualmente no invalidaba `["animals"]`; al añadir `["dashboard"]` se mantiene el comportamiento existente intacto.
-- El cambio de `fecha` default en `FormVacuna` afecta también al uso desde el perfil del animal — efecto deseado (consistencia con el grupal).
-- Reversible: cada cambio es aditivo o un default razonable.
+- **Edición / borrado de un lote**: fuera de alcance de esta fase. El botón de eliminar (cuando exista) borrará registros individuales; un futuro prompt puede añadir "eliminar lote completo".
+- **Filtros vs agrupado**: si el usuario filtra por un animal específico y ese animal pertenece a un lote, se muestra el lote completo expandido (decisión: privilegiar contexto del lote). Se puede ajustar después si molesta.
