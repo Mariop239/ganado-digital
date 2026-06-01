@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Syringe, CalendarClock, Beef, Plus, AlarmClock } from "lucide-react";
+import { Syringe, CalendarClock, Beef, Plus, AlarmClock, ChevronRight, ChevronDown, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,14 @@ function ControlSanitarioPage() {
   const [tipo, setTipo] = useState<"todos" | TipoTratamiento>("todos");
   const [producto, setProducto] = useState<string>("todos");
   const [openGrupal, setOpenGrupal] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleBatch = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const productos = useMemo(() => {
     const set = new Set<string>();
@@ -71,6 +79,51 @@ function ControlSanitarioPage() {
         .some((v) => String(v).toLowerCase().includes(s));
     });
   }, [data, q, tipo, producto]);
+
+  type GroupRow =
+    | { kind: "single"; vacuna: (typeof filtered)[number] }
+    | {
+        kind: "batch";
+        batch_id: string;
+        fecha: string | null;
+        fecha_proxima_dosis: string | null;
+        tipo_tratamiento: TipoTratamiento;
+        estado_tratamiento: EstadoTratamiento;
+        vacuna_aplicada: string;
+        gasto_total: number;
+        items: (typeof filtered);
+      };
+
+  const grouped = useMemo<GroupRow[]>(() => {
+    const out: GroupRow[] = [];
+    const batches = new Map<string, GroupRow & { kind: "batch" }>();
+    for (const r of filtered) {
+      if (r.batch_id) {
+        const existing = batches.get(r.batch_id);
+        if (existing) {
+          existing.items.push(r);
+          existing.gasto_total += Number(r.gasto) || 0;
+        } else {
+          const row: GroupRow & { kind: "batch" } = {
+            kind: "batch",
+            batch_id: r.batch_id,
+            fecha: r.fecha,
+            fecha_proxima_dosis: r.fecha_proxima_dosis,
+            tipo_tratamiento: r.tipo_tratamiento as TipoTratamiento,
+            estado_tratamiento: r.estado_tratamiento as EstadoTratamiento,
+            vacuna_aplicada: r.vacuna_aplicada,
+            gasto_total: Number(r.gasto) || 0,
+            items: [r],
+          };
+          batches.set(r.batch_id, row);
+          out.push(row);
+        }
+      } else {
+        out.push({ kind: "single", vacuna: r });
+      }
+    }
+    return out;
+  }, [filtered]);
 
   const stats = useMemo(() => {
     const rows = data ?? [];
@@ -176,6 +229,7 @@ function ControlSanitarioPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8" />
               <TableHead>Animal</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Producto</TableHead>
@@ -187,28 +241,78 @@ function ControlSanitarioPage() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={7} className="py-6 text-center text-muted-foreground">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Cargando…</TableCell></TableRow>
             )}
-            {!isLoading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="py-6 text-center text-muted-foreground">Sin registros.</TableCell></TableRow>
+            {!isLoading && grouped.length === 0 && (
+              <TableRow><TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Sin registros.</TableCell></TableRow>
             )}
-            {filtered.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">
-                  #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">
-                    {TIPO_TRATAMIENTO_LABELS[r.tipo_tratamiento as TipoTratamiento] ?? r.tipo_tratamiento}
-                  </Badge>
-                </TableCell>
-                <TableCell>{r.vacuna_aplicada}</TableCell>
-                <TableCell><EstadoBadge estado={r.estado_tratamiento} /></TableCell>
-                <TableCell>{fmt(r.fecha)}</TableCell>
-                <TableCell>{fmt(r.fecha_proxima_dosis)}</TableCell>
-                <TableCell className="text-right">{money(r.gasto)}</TableCell>
-              </TableRow>
-            ))}
+            {grouped.map((row) => {
+              if (row.kind === "single") {
+                const r = row.vacuna;
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell />
+                    <TableCell className="font-medium">
+                      #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {TIPO_TRATAMIENTO_LABELS[r.tipo_tratamiento as TipoTratamiento] ?? r.tipo_tratamiento}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{r.vacuna_aplicada}</TableCell>
+                    <TableCell><EstadoBadge estado={r.estado_tratamiento} /></TableCell>
+                    <TableCell>{fmt(r.fecha)}</TableCell>
+                    <TableCell>{fmt(r.fecha_proxima_dosis)}</TableCell>
+                    <TableCell className="text-right">{money(r.gasto)}</TableCell>
+                  </TableRow>
+                );
+              }
+              const isOpen = expanded.has(row.batch_id);
+              return (
+                <>
+                  <TableRow
+                    key={row.batch_id}
+                    className="cursor-pointer bg-muted/30 hover:bg-muted/50"
+                    onClick={() => toggleBatch(row.batch_id)}
+                  >
+                    <TableCell className="w-8">
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Badge className="border-transparent bg-primary/10 text-primary hover:bg-primary/20">
+                          <Layers className="mr-1 h-3 w-3" /> Lote · {row.items.length} animales
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {TIPO_TRATAMIENTO_LABELS[row.tipo_tratamiento] ?? row.tipo_tratamiento}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{row.vacuna_aplicada}</TableCell>
+                    <TableCell><EstadoBadge estado={row.estado_tratamiento} /></TableCell>
+                    <TableCell>{fmt(row.fecha)}</TableCell>
+                    <TableCell>{fmt(row.fecha_proxima_dosis)}</TableCell>
+                    <TableCell className="text-right font-medium">{money(row.gasto_total)}</TableCell>
+                  </TableRow>
+                  {isOpen &&
+                    row.items.map((r) => (
+                      <TableRow key={r.id} className="bg-muted/10">
+                        <TableCell />
+                        <TableCell className="pl-8 text-sm">
+                          #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
+                        </TableCell>
+                        <TableCell colSpan={5} className="text-sm text-muted-foreground">
+                          Incluido en el lote
+                        </TableCell>
+                        <TableCell className="text-right text-sm">{money(r.gasto)}</TableCell>
+                      </TableRow>
+                    ))}
+                </>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
