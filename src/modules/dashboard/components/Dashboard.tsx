@@ -24,7 +24,7 @@ import { FormHistorial, useNacimientosMes } from "@/modules/breeding";
 import {
   FormControlSanitarioGrupal,
   useGastoSanitarioMes,
-  useVacunasGlobal,
+  useAlertasSanitariasGlobales,
 } from "@/modules/vaccinations";
 
 const money = (n: number) =>
@@ -275,26 +275,8 @@ function AlertasCrianza() {
 }
 
 function AlertasSanitarias() {
-  const { data, isLoading } = useVacunasGlobal();
-
-  const proximas = useMemo(() => {
-    const hoy = new Date();
-    return (data ?? [])
-      .filter((r) => {
-        if (!r.fecha_proxima_dosis) return false;
-        const diff = differenceInCalendarDays(
-          parseISO(r.fecha_proxima_dosis),
-          hoy,
-        );
-        return diff >= -30 && diff <= 30;
-      })
-      .sort(
-        (a, b) =>
-          parseISO(a.fecha_proxima_dosis as string).getTime() -
-          parseISO(b.fecha_proxima_dosis as string).getTime(),
-      )
-      .slice(0, 5);
-  }, [data]);
+  const { data, isLoading } = useAlertasSanitariasGlobales();
+  const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
 
   return (
     <Card className="border-sky-500/40 bg-sky-50/40 dark:bg-sky-950/10">
@@ -312,13 +294,13 @@ function AlertasSanitarias() {
           </div>
         )}
         {!isLoading && proximas.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">
-            Sin dosis pendientes en los próximos días.
-          </p>
+          <div className="p-4 text-sm text-muted-foreground">
+            Todo al día. No hay vacunas próximas.
+          </div>
         )}
         {!isLoading &&
           proximas.map((r) => {
-            const fecha = parseISO(r.fecha_proxima_dosis as string);
+            const fecha = parseISO(r.fecha_proxima_dosis);
             const diff = differenceInCalendarDays(fecha, new Date());
             const label = format(fecha, "d MMM yyyy", { locale: es });
             const meta =
@@ -327,9 +309,7 @@ function AlertasSanitarias() {
                 : diff === 0
                   ? `Hoy: ${label}`
                   : `En ${diff} día${diff === 1 ? "" : "s"}: ${label}`;
-            const animal = r.animals
-              ? `#${r.animals.numero}${r.animals.nombre ? ` — ${r.animals.nombre}` : ""}`
-              : "Animal";
+            const animal = `#${r.animal_numero}${r.animal_nombre ? ` — ${r.animal_nombre}` : ""}`;
             return (
               <SanitariaRow
                 key={r.id}
