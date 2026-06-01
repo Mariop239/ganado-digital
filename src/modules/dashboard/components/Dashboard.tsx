@@ -8,6 +8,7 @@ import {
   Plus,
   Stethoscope,
   CalendarHeart,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,15 +19,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { useAnimals, FormAnimal, SelectorAnimal } from "@/modules/animals";
 import {
   FormHistorial,
   useNacimientosMes,
   useAlertasCrianza,
+  useMarcarParida,
+  useMarcarDestetado,
   type AlertaCrianza,
 } from "@/modules/breeding";
 import {
   FormControlSanitarioGrupal,
+  FormVacuna,
   useGastoSanitarioMes,
   useAlertasSanitariasGlobales,
 } from "@/modules/vaccinations";
@@ -38,7 +53,18 @@ const money = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n || 0);
 
-type DialogKey = null | "animal" | "vacuna" | "parto";
+type DialogState =
+  | { tipo: "animal" }
+  | { tipo: "vacuna-grupal" }
+  | { tipo: "vacuna-rapida"; animalId: string }
+  | { tipo: "parto-selector" }
+  | {
+      tipo: "parto";
+      animalId: string;
+      historialId: string;
+      toro: string | null;
+      madreLabel: string;
+    };
 
 export function Dashboard() {
   const { data: animals, isLoading: loadingAnimals } = useAnimals();
@@ -51,12 +77,12 @@ export function Dashboard() {
     [animals],
   );
 
-  const [open, setOpen] = useState<DialogKey>(null);
-  const [madreId, setMadreId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [partoSelectorId, setPartoSelectorId] = useState<string | null>(null);
 
   const closeAll = () => {
-    setOpen(null);
-    setMadreId(null);
+    setDialog(null);
+    setPartoSelectorId(null);
   };
 
   return (
@@ -107,17 +133,17 @@ export function Dashboard() {
           <QuickAction
             label="Registrar parto"
             icon={CalendarHeart}
-            onClick={() => setOpen("parto")}
+            onClick={() => setDialog({ tipo: "parto-selector" })}
           />
           <QuickAction
             label="Añadir animal"
             icon={Plus}
-            onClick={() => setOpen("animal")}
+            onClick={() => setDialog({ tipo: "animal" })}
           />
           <QuickAction
             label="Registrar vacuna"
             icon={Syringe}
-            onClick={() => setOpen("vacuna")}
+            onClick={() => setDialog({ tipo: "vacuna-grupal" })}
           />
         </div>
       </section>
@@ -128,14 +154,28 @@ export function Dashboard() {
           Tareas y alertas pendientes
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <AlertasCrianza />
-          <AlertasSanitarias />
+          <AlertasCrianza
+            onRegistrarParto={(a) =>
+              setDialog({
+                tipo: "parto",
+                animalId: a.animal_id,
+                historialId: a.historial_id,
+                toro: a.toro,
+                madreLabel: animalLabel(a),
+              })
+            }
+          />
+          <AlertasSanitarias
+            onRegistrar={(animalId) =>
+              setDialog({ tipo: "vacuna-rapida", animalId })
+            }
+          />
         </div>
       </section>
 
       {/* Diálogos */}
       <Dialog
-        open={open === "animal"}
+        open={dialog?.tipo === "animal"}
         onOpenChange={(v) => (!v ? closeAll() : null)}
       >
         <DialogContent className="max-w-2xl">
@@ -147,7 +187,7 @@ export function Dashboard() {
       </Dialog>
 
       <Dialog
-        open={open === "vacuna"}
+        open={dialog?.tipo === "vacuna-grupal"}
         onOpenChange={(v) => (!v ? closeAll() : null)}
       >
         <DialogContent className="max-w-3xl">
@@ -158,33 +198,57 @@ export function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Acción rápida: registrar vacuna a un animal puntual */}
       <Dialog
-        open={open === "parto"}
+        open={dialog?.tipo === "vacuna-rapida"}
+        onOpenChange={(v) => (!v ? closeAll() : null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Registrar tratamiento</DialogTitle>
+          </DialogHeader>
+          {dialog?.tipo === "vacuna-rapida" && (
+            <FormVacuna animalId={dialog.animalId} onDone={closeAll} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Selector del header para "Registrar parto" */}
+      <Dialog
+        open={dialog?.tipo === "parto-selector"}
         onOpenChange={(v) => (!v ? closeAll() : null)}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {madreId ? "Registrar servicio / parto" : "Selecciona la madre"}
+              {partoSelectorId
+                ? "Registrar servicio / parto"
+                : "Selecciona la madre"}
             </DialogTitle>
           </DialogHeader>
-          {!madreId ? (
+          {!partoSelectorId ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Elige la hembra a la que vas a registrar el servicio o parto.
               </p>
               <SelectorAnimal
                 value={null}
-                onChange={(id) => setMadreId(id)}
+                onChange={(id) => setPartoSelectorId(id)}
                 sexo="hembra"
                 placeholder="Buscar hembra…"
               />
             </div>
           ) : (
-            <FormHistorial animalId={madreId} onDone={closeAll} />
+            <FormHistorial animalId={partoSelectorId} onDone={closeAll} />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Acción rápida de parto desde una alerta — reusa el flujo de "Registrar nacimiento" */}
+      <PartoRapidoDialog
+        state={dialog?.tipo === "parto" ? dialog : null}
+        onClose={closeAll}
+      />
     </div>
   );
 }
@@ -248,18 +312,20 @@ function CrianzaRow({
   meta,
   icon: Icon,
   alert,
+  action,
 }: {
   title: string;
   meta: string;
   icon: React.ComponentType<{ className?: string }>;
   alert: boolean;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start gap-3 p-4">
       <Icon
         className={`mt-0.5 h-5 w-5 shrink-0 ${alert ? "text-destructive" : "text-amber-600"}`}
       />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
         <p
           className={`text-xs ${alert ? "text-destructive" : "text-muted-foreground"}`}
@@ -267,6 +333,7 @@ function CrianzaRow({
           {meta}
         </p>
       </div>
+      {action ? <div className="ml-auto shrink-0">{action}</div> : null}
     </div>
   );
 }
@@ -275,11 +342,18 @@ function animalLabel(a: AlertaCrianza) {
   return `#${a.animal_numero}${a.animal_nombre ? ` — ${a.animal_nombre}` : ""}`;
 }
 
-function AlertasCrianza() {
+function AlertasCrianza({
+  onRegistrarParto,
+}: {
+  onRegistrarParto: (a: AlertaCrianza) => void;
+}) {
   const { data, isLoading } = useAlertasCrianza();
   const items = useMemo(() => (data ?? []).slice(0, 5), [data]);
+  const destetar = useMarcarDestetado();
+  const [confirm, setConfirm] = useState<AlertaCrianza | null>(null);
 
   return (
+    <>
     <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
       <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-3">
         <CalendarHeart className="h-5 w-5 text-amber-600" />
@@ -318,6 +392,17 @@ function AlertasCrianza() {
                   title={`Próximo parto: ${animalLabel(a)}`}
                   meta={meta}
                   alert={overdue}
+                  action={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRegistrarParto(a)}
+                    >
+                      <Baby className="h-4 w-4" />
+                      <span className="hidden sm:inline">Registrar</span>
+                    </Button>
+                  }
                 />
               );
             }
@@ -340,15 +425,61 @@ function AlertasCrianza() {
                 title={`Destete pendiente: ${animalLabel(a)}`}
                 meta={meta}
                 alert={overdue}
+                action={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirm(a)}
+                    disabled={destetar.isPending}
+                  >
+                    <Check className="h-4 w-4" />
+                    <span className="hidden sm:inline">Destetar</span>
+                  </Button>
+                }
               />
             );
           })}
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Confirmar destete?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Se registrará el destete de {confirm ? animalLabel(confirm) : ""} con la fecha de hoy.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={async () => {
+              if (!confirm) return;
+              try {
+                await destetar.mutateAsync(confirm.historial_id);
+                toast.success("Destete registrado");
+              } catch (e: unknown) {
+                toast.error(e instanceof Error ? e.message : "Error al registrar destete");
+              } finally {
+                setConfirm(null);
+              }
+            }}
+          >
+            Confirmar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
-function AlertasSanitarias() {
+function AlertasSanitarias({
+  onRegistrar,
+}: {
+  onRegistrar: (animalId: string) => void;
+}) {
   const { data, isLoading } = useAlertasSanitariasGlobales();
   const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
 
@@ -390,6 +521,7 @@ function AlertasSanitarias() {
                 title={`${animal} · ${r.vacuna_aplicada}`}
                 meta={meta}
                 overdue={diff < 0}
+                onRegistrar={() => onRegistrar(r.animal_id)}
               />
             );
           })}
@@ -402,17 +534,19 @@ function SanitariaRow({
   title,
   meta,
   overdue,
+  onRegistrar,
 }: {
   title: string;
   meta: string;
   overdue: boolean;
+  onRegistrar: () => void;
 }) {
   return (
     <div className="flex items-start gap-3 p-4">
       <Syringe
         className={`mt-0.5 h-5 w-5 shrink-0 ${overdue ? "text-destructive" : "text-sky-600"}`}
       />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
         <p
           className={`text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}
@@ -420,6 +554,72 @@ function SanitariaRow({
           {meta}
         </p>
       </div>
+      <div className="ml-auto shrink-0">
+        <Button type="button" size="sm" variant="outline" onClick={onRegistrar}>
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Registrar</span>
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function PartoRapidoDialog({
+  state,
+  onClose,
+}: {
+  state:
+    | {
+        tipo: "parto";
+        animalId: string;
+        historialId: string;
+        toro: string | null;
+        madreLabel: string;
+      }
+    | null;
+  onClose: () => void;
+}) {
+  const marcarParida = useMarcarParida(state?.animalId ?? "");
+  return (
+    <Dialog open={!!state} onOpenChange={(v) => (!v ? onClose() : null)}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Registrar nacimiento — {state?.madreLabel}</DialogTitle>
+        </DialogHeader>
+        {state && (
+          <FormAnimal
+            defaults={{
+              mother_id: state.animalId,
+              madre_texto: state.madreLabel,
+              padre_texto: state.toro ?? "",
+              fecha_nacimiento: new Date().toISOString().slice(0, 10),
+              sexo: "hembra",
+              categoria: "ternera",
+            }}
+            lockedFields={["mother_id", "madre_texto", "padre_texto"]}
+            onDone={onClose}
+            onAfterCreate={async (created) => {
+              try {
+                await marcarParida.mutateAsync({
+                  id: state.historialId,
+                  input: {
+                    fecha_parto:
+                      created.fecha_nacimiento ??
+                      new Date().toISOString().slice(0, 10),
+                    sexo_cria: created.sexo === "macho" ? "Macho" : "Hembra",
+                    cria_animal_id: created.id,
+                  },
+                });
+                toast.success("Nacimiento registrado y parto cerrado");
+              } catch (e: unknown) {
+                toast.error(
+                  e instanceof Error ? e.message : "Error al actualizar el servicio",
+                );
+              }
+            }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
