@@ -1,88 +1,118 @@
-## Objetivo
+## Cambios al plan anterior
 
-Convertir `/` en un Dashboard táctil y profesional, mover la lista de animales a `/animales`, y reordenar el sidebar.
+Incorpora las 5 correcciones solicitadas. El resto del plan (atajos en alertas + invalidación global) se mantiene.
 
-## Nota sobre nomenclatura (Principio #13)
+---
 
-El proyecto estandariza "Animal" sobre "Vaca". Propongo usar las etiquetas:
-- "Animales activos" (en vez de "Total de Vacas Activas")
-- "Animales" en sidebar (en vez de "Mis Vacas")
+### 1. Acción rápida de Parto — reutilizar el flujo de "Registrar nacimiento"
 
-Mantengo "Nacimientos del mes" y "Gasto sanitario (mes)". Si prefieres conservar literalmente "Vacas", lo cambio en build.
+`FormHistorial` NO sirve (crea servicios, no actualiza partos). El flujo correcto ya existe en `HistorialTabla.tsx` (líneas 161–196): abre `FormAnimal` para crear la cría con `mother_id` precargado y, en `onAfterCreate`, dispara `useMarcarParida` con el `historial.id` y el `cria_animal_id` recién creado.
 
-## Paso 1 — Rutas
+Aplicar exactamente ese mismo patrón en `Dashboard.tsx`:
 
-- Mover el componente actual de `/` (ListaAnimales) a una nueva ruta `src/routes/_authenticated/animales.tsx` → `/animales`.
-- Reemplazar `src/routes/_authenticated/index.tsx` para que renderice `<Dashboard />`.
-- Eliminar la ruta legacy redundante `src/routes/_authenticated/animales.index.tsx` si duplica (verificar en build).
+- Al clic en "Registrar" de una `CrianzaRow` tipo `parto`, abrir un `Dialog` "Registrar nacimiento" que renderiza `FormAnimal` con:
+  - `defaults`: `mother_id`, `madre_texto`, `padre_texto` (toro del historial), `fecha_nacimiento = hoy`, `sexo: "hembra"`, `categoria: "ternera"`.
+  - `lockedFields: ["mother_id", "madre_texto", "padre_texto"]`.
+  - `onAfterCreate`: llama a `useMarcarParida(animalId).mutateAsync({ id: historialId, input: { fecha_parto, sexo_cria, cria_animal_id } })`.
+- Para tener `toro`/`madre`, el hook `useAlertasCrianza` debe exponer:
+  - `historial_id` (raw, no concatenado).
+  - `toro: string | null` (del registro de historial).
 
-## Paso 2 — Componente Dashboard
+Nota P3/P4: el animal madre no muta; solo se actualiza el `historial` correspondiente y se crea una nueva cría como entidad estable.
 
-`src/modules/dashboard/components/Dashboard.tsx` (módulo nuevo, respetando arquitectura modular).
+---
 
-### 2.1 Tarjetas de Resumen (grid 1/2/3 cols responsivo)
+### 2. `useMarcarDestetado` — sintaxis correcta
 
-Datos en vivo vía hooks existentes + uno nuevo:
+```ts
+// src/modules/breeding/hooks/useMarcarDestetado.ts
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-- **Animales activos**: `useAnimals()` → contar `estado_actual === "activa"`.
-- **Nacimientos del mes**: nuevo hook `useNacimientosMes()` en `modules/breeding/hooks/` — query a `historial` con `fecha_parto` entre inicio y fin del mes actual del usuario (RLS).
-- **Gasto sanitario (mes)**: nuevo hook `useGastoSanitarioMes()` en `modules/vaccinations/hooks/` — suma `gasto` de `control_vacunas` con `fecha` en el mes actual.
-
-Cards grandes con icono, label `text-muted-foreground`, número `text-3xl font-bold`, usando tokens del design system (sin colores hardcoded). Skeletons mientras carga.
-
-### 2.2 Acciones Rápidas (grid 1/3 cols)
-
-3 botones grandes (`min-h-20`, `text-base`, icono prominente) que abren los modales existentes:
-
-- **Registrar Nacimiento/Parto** → Dialog con `FormHistorial` (módulo breeding). Como ese formulario requiere un `animal_id` (madre), abre primero un `SelectorAnimal` filtrado por hembras activas y luego el formulario.
-- **Añadir Animal** → Dialog con `FormAnimal` (mismo patrón que ListaAnimales línea ~16-17).
-- **Registrar Vacuna/Tratamiento** → Dialog con `FormControlSanitarioGrupal` (mismo patrón que `vacunas.tsx` línea ~98-110).
-
-Reutilizar 100% los formularios existentes — no duplicar UI (Principio #1).
-
-### 2.3 Panel de Alertas
-
-Card titulada "Tareas y alertas pendientes" con borde/acento cálido (`border-amber-500/40`, icono `AlertTriangle` en `text-amber-600`). Por ahora maqueta estática con 2 items mock como pidió el usuario. Estructura preparada para reemplazar con datos reales en una fase futura (gestantes próximas a parto desde `historial.fecha_probable_parto`, destetes pendientes, próximas dosis sanitarias).
-
-## Paso 3 — Sidebar
-
-Actualizar `src/components/layout/AppSidebar.tsx`:
-
-```
-{ title: "Dashboard",        url: "/",         icon: LayoutDashboard }
-{ title: "Animales",         url: "/animales", icon: Beef }
-{ title: "Control Sanitario", url: "/vacunas", icon: Syringe }
+export function useMarcarDestetado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (historialId: string) => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const { error } = await supabase
+        .from("historial")
+        .update({ fecha_destete: hoy })
+        .eq("id", historialId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["historial"] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
+    },
+  });
+}
 ```
 
-Marca activa: `/` exacto para Dashboard, `startsWith` para los demás (ya soportado).
+Exportar desde `src/modules/breeding/index.ts`. Confirmación previa vía `AlertDialog` ("¿Confirmar destete de #045?") y `toast` de éxito/error en el componente que lo invoca.
 
-## Paso 4 — Mobile-first
+---
 
-- Grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`.
-- Botones de acción rápida: `min-h-20`, ancho completo en móvil, columnas en ≥sm.
-- Padding generoso en cards, tipografía escalable (`text-2xl sm:text-3xl`).
-- Toda la página dentro del `main` actual (ya tiene `max-w-6xl px-4 py-6`).
+### 3. Invalidación global consistente
 
-## Archivos a crear / modificar
+Añadir `qc.invalidateQueries({ queryKey: ["dashboard"] })` en el `onSuccess` de TODAS estas mutaciones (mantener las invalidaciones existentes):
 
-Crear:
-- `src/modules/dashboard/components/Dashboard.tsx`
-- `src/modules/dashboard/index.ts`
-- `src/modules/breeding/hooks/useNacimientosMes.ts`
-- `src/modules/vaccinations/hooks/useGastoSanitarioMes.ts`
-- `src/routes/_authenticated/animales.tsx`
+- `src/modules/vaccinations/hooks/useVacunas.ts`: `useCreateVacuna`, `useCreateVacunasBulk`, `useDeleteVacuna`.
+- `src/modules/breeding/hooks/useHistorial.ts`: `useCreateServicio`, `useUpdateServicio`, `useMarcarParida`, **`useDeleteHistorial`** (incluido explícitamente).
+- `useMarcarDestetado` (nuevo, ya incluido).
 
-Modificar:
-- `src/routes/_authenticated/index.tsx` (render Dashboard)
-- `src/components/layout/AppSidebar.tsx` (3 items reordenados)
-- Re-exports en `src/modules/breeding/index.ts` y `src/modules/vaccinations/index.ts`
+La invalidación por prefijo `["dashboard"]` cubre `alertas-crianza`, `alertas-sanitarias-globales`, `nacimientos-mes` y `gasto-sanitario-mes` (todos comparten ese prefijo en sus query keys actuales).
 
-Verificar:
-- Resolver conflicto con `src/routes/_authenticated/animales.index.tsx` existente (quedará una sola ruta `/animales`).
-- `routeTree.gen.ts` se regenera solo.
+---
 
-## Fuera de alcance (Principio #7)
+### 4. Estado del diálogo extendido — incluir `historialId`
 
-- Lógica real de alertas (solo maqueta, como pidió el usuario).
-- Cambios en formularios existentes.
-- Migraciones de base de datos.
+Reemplazar:
+
+```ts
+type DialogKey = null | "animal" | "vacuna" | "parto";
+const [open, setOpen] = useState<DialogKey>(null);
+```
+
+por:
+
+```ts
+type DialogState =
+  | { tipo: "animal" }
+  | { tipo: "vacuna-grupal" }                                  // acción rápida del header
+  | { tipo: "vacuna-rapida"; animalId: string }                // desde alerta sanitaria
+  | { tipo: "parto-selector" }                                 // acción rápida del header
+  | { tipo: "parto"; animalId: string; historialId: string; toro: string | null; madreLabel: string };
+
+const [dialog, setDialog] = useState<DialogState | null>(null);
+```
+
+- `historialId` se necesita en `parto` (para `marcarParida`) y se pasa al `AlertDialog` de destete (como argumento directo de `useMarcarDestetado.mutate`).
+- `animalId` se necesita para `vacuna-rapida` y `parto`.
+- El flujo grupal/selector del header NO lleva contexto.
+
+---
+
+### 5. `FormVacuna` — inicializar fecha en hoy
+
+En `src/modules/vaccinations/components/FormVacuna.tsx`, cambiar el `defaultValues.fecha` de `""` a `new Date().toISOString().slice(0, 10)`. Sin cambios adicionales — el `DatePicker` ya acepta ese formato.
+
+Esto alinea el formulario individual con el grupal (`FormControlSanitarioGrupal`) y agiliza la acción rápida sanitaria del Dashboard.
+
+---
+
+## Archivos a tocar (resumen actualizado)
+
+- `src/modules/dashboard/components/Dashboard.tsx` — estado `DialogState`, botones por fila, integración con `FormAnimal` para parto, `AlertDialog` para destete.
+- `src/modules/vaccinations/hooks/useVacunas.ts` — añadir invalidate `["dashboard"]` en los 3 hooks.
+- `src/modules/vaccinations/components/FormVacuna.tsx` — `fecha` default = hoy.
+- `src/modules/breeding/hooks/useHistorial.ts` — añadir invalidate `["dashboard"]` en los 4 hooks (incluyendo `useDeleteHistorial`).
+- `src/modules/breeding/hooks/useMarcarDestetado.ts` — **nuevo**.
+- `src/modules/breeding/hooks/useAlertasCrianza.ts` — exponer `historial_id` y `toro` en `AlertaCrianza`.
+- `src/modules/breeding/index.ts` — exportar `useMarcarDestetado`.
+
+## Riesgos
+
+- `useDeleteHistorial` actualmente no invalidaba `["animals"]`; al añadir `["dashboard"]` se mantiene el comportamiento existente intacto.
+- El cambio de `fecha` default en `FormVacuna` afecta también al uso desde el perfil del animal — efecto deseado (consistencia con el grupal).
+- Reversible: cada cambio es aditivo o un default razonable.
