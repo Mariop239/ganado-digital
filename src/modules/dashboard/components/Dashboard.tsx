@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 import {
   Beef,
   Baby,
@@ -22,6 +24,7 @@ import { FormHistorial, useNacimientosMes } from "@/modules/breeding";
 import {
   FormControlSanitarioGrupal,
   useGastoSanitarioMes,
+  useVacunasGlobal,
 } from "@/modules/vaccinations";
 
 const money = (n: number) =>
@@ -120,18 +123,10 @@ export function Dashboard() {
         <h2 className="text-lg font-semibold text-foreground">
           Tareas y alertas pendientes
         </h2>
-        <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
-          <CardContent className="divide-y divide-amber-500/20 p-0">
-            <AlertRow
-              title="Animal V-045 próxima a parto"
-              meta="Fecha probable: en 5 días"
-            />
-            <AlertRow
-              title="Destete pendiente V-012"
-              meta="Cría con más de 6 meses"
-            />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <AlertasCrianza />
+          <AlertasSanitarias />
+        </div>
       </section>
 
       {/* Diálogos */}
@@ -251,6 +246,125 @@ function AlertRow({ title, meta }: { title: string; meta: string }) {
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground">{meta}</p>
+      </div>
+    </div>
+  );
+}
+
+function AlertasCrianza() {
+  return (
+    <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
+      <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-3">
+        <CalendarHeart className="h-5 w-5 text-amber-600" />
+        <CardTitle className="text-base font-semibold text-foreground">
+          Alertas de crianza
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="divide-y divide-amber-500/20 p-0">
+        <AlertRow
+          title="Vaca V-045 próxima a parto"
+          meta="Fecha probable: en 5 días"
+        />
+        <AlertRow
+          title="Destete pendiente V-012"
+          meta="Cría con más de 6 meses"
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertasSanitarias() {
+  const { data, isLoading } = useVacunasGlobal();
+
+  const proximas = useMemo(() => {
+    const hoy = new Date();
+    return (data ?? [])
+      .filter((r) => {
+        if (!r.fecha_proxima_dosis) return false;
+        const diff = differenceInCalendarDays(
+          parseISO(r.fecha_proxima_dosis),
+          hoy,
+        );
+        return diff >= -30 && diff <= 30;
+      })
+      .sort(
+        (a, b) =>
+          parseISO(a.fecha_proxima_dosis as string).getTime() -
+          parseISO(b.fecha_proxima_dosis as string).getTime(),
+      )
+      .slice(0, 5);
+  }, [data]);
+
+  return (
+    <Card className="border-sky-500/40 bg-sky-50/40 dark:bg-sky-950/10">
+      <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-3">
+        <Syringe className="h-5 w-5 text-sky-600" />
+        <CardTitle className="text-base font-semibold text-foreground">
+          Alertas sanitarias
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="divide-y divide-sky-500/20 p-0">
+        {isLoading && (
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        )}
+        {!isLoading && proximas.length === 0 && (
+          <p className="p-4 text-sm text-muted-foreground">
+            Sin dosis pendientes en los próximos días.
+          </p>
+        )}
+        {!isLoading &&
+          proximas.map((r) => {
+            const fecha = parseISO(r.fecha_proxima_dosis as string);
+            const diff = differenceInCalendarDays(fecha, new Date());
+            const label = format(fecha, "d MMM yyyy", { locale: es });
+            const meta =
+              diff < 0
+                ? `Atrasado: ${label}`
+                : diff === 0
+                  ? `Hoy: ${label}`
+                  : `En ${diff} día${diff === 1 ? "" : "s"}: ${label}`;
+            const animal = r.animals
+              ? `#${r.animals.numero}${r.animals.nombre ? ` — ${r.animals.nombre}` : ""}`
+              : "Animal";
+            return (
+              <SanitariaRow
+                key={r.id}
+                title={`${animal} · ${r.vacuna_aplicada}`}
+                meta={meta}
+                overdue={diff < 0}
+              />
+            );
+          })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SanitariaRow({
+  title,
+  meta,
+  overdue,
+}: {
+  title: string;
+  meta: string;
+  overdue: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 p-4">
+      <Syringe
+        className={`mt-0.5 h-5 w-5 shrink-0 ${overdue ? "text-destructive" : "text-sky-600"}`}
+      />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">{title}</p>
+        <p
+          className={`text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {meta}
+        </p>
       </div>
     </div>
   );
