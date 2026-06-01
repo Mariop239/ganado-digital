@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -270,7 +270,7 @@ function ControlSanitarioPage() {
               }
               const isOpen = expanded.has(row.batch_id);
               return (
-                <>
+                <Fragment key={row.batch_id}>
                   <TableRow
                     key={row.batch_id}
                     className="cursor-pointer bg-muted/30 hover:bg-muted/50"
@@ -310,7 +310,7 @@ function ControlSanitarioPage() {
                         <TableCell className="text-right text-sm">{money(r.gasto)}</TableCell>
                       </TableRow>
                     ))}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>
