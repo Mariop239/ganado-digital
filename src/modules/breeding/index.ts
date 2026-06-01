@@ -7,6 +7,7 @@ export {
   useDeleteHistorial,
   useMarcarParida,
 } from "./hooks/useHistorial";
+export { useNacimientosMes } from "./hooks/useNacimientosMes";
 export { servicioSchema } from "./schemas";
 export type {
   Historial,

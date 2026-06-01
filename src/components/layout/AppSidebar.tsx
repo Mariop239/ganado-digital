@@ -1,12 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Beef, Syringe } from "lucide-react";
+import { LayoutDashboard, Beef, Syringe } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Animales", url: "/", icon: Beef },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Animales", url: "/animales", icon: Beef },
   { title: "Control Sanitario", url: "/vacunas", icon: Syringe },
 ] as const;
 
