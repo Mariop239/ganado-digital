@@ -10,6 +10,10 @@ export {
 } from "./hooks/useVacunas";
 export { useGastoSanitarioMes } from "./hooks/useGastoSanitarioMes";
 export {
+  useAlertasSanitariasGlobales,
+  type AlertaSanitaria,
+} from "./hooks/useAlertasSanitariasGlobales";
+export {
   vacunaSchema,
   TIPO_TRATAMIENTO_LABELS,
   ESTADO_TRATAMIENTO_LABELS,
