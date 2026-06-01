@@ -6,7 +6,6 @@ import {
   Baby,
   Syringe,
   Plus,
-  AlertTriangle,
   Stethoscope,
   CalendarHeart,
 } from "lucide-react";
@@ -20,7 +19,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAnimals, FormAnimal, SelectorAnimal } from "@/modules/animals";
-import { FormHistorial, useNacimientosMes } from "@/modules/breeding";
+import {
+  FormHistorial,
+  useNacimientosMes,
+  useAlertasCrianza,
+  type AlertaCrianza,
+} from "@/modules/breeding";
 import {
   FormControlSanitarioGrupal,
   useGastoSanitarioMes,
@@ -239,19 +243,42 @@ function QuickAction({
   );
 }
 
-function AlertRow({ title, meta }: { title: string; meta: string }) {
+function CrianzaRow({
+  title,
+  meta,
+  icon: Icon,
+  alert,
+}: {
+  title: string;
+  meta: string;
+  icon: React.ComponentType<{ className?: string }>;
+  alert: boolean;
+}) {
   return (
     <div className="flex items-start gap-3 p-4">
-      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+      <Icon
+        className={`mt-0.5 h-5 w-5 shrink-0 ${alert ? "text-destructive" : "text-amber-600"}`}
+      />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{meta}</p>
+        <p className="truncate text-sm font-medium text-foreground">{title}</p>
+        <p
+          className={`text-xs ${alert ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {meta}
+        </p>
       </div>
     </div>
   );
 }
 
+function animalLabel(a: AlertaCrianza) {
+  return `#${a.animal_numero}${a.animal_nombre ? ` — ${a.animal_nombre}` : ""}`;
+}
+
 function AlertasCrianza() {
+  const { data, isLoading } = useAlertasCrianza();
+  const items = useMemo(() => (data ?? []).slice(0, 5), [data]);
+
   return (
     <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
       <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-3">
@@ -261,14 +288,61 @@ function AlertasCrianza() {
         </CardTitle>
       </CardHeader>
       <CardContent className="divide-y divide-amber-500/20 p-0">
-        <AlertRow
-          title="Vaca V-045 próxima a parto"
-          meta="Fecha probable: en 5 días"
-        />
-        <AlertRow
-          title="Destete pendiente V-012"
-          meta="Cría con más de 6 meses"
-        />
+        {isLoading && (
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        )}
+        {!isLoading && items.length === 0 && (
+          <div className="p-4 text-sm text-muted-foreground">
+            No hay partos ni destetes próximos.
+          </div>
+        )}
+        {!isLoading &&
+          items.map((a) => {
+            const fecha = parseISO(a.fecha_clave);
+            const diff = differenceInCalendarDays(fecha, new Date());
+            const fechaLabel = format(fecha, "d MMM yyyy", { locale: es });
+            if (a.tipo === "parto") {
+              const overdue = diff < 0;
+              const meta = overdue
+                ? `Atrasado por ${Math.abs(diff)} día${Math.abs(diff) === 1 ? "" : "s"} (${fechaLabel})`
+                : diff === 0
+                  ? `Hoy: ${fechaLabel}`
+                  : `Faltan ${diff} día${diff === 1 ? "" : "s"} (${fechaLabel})`;
+              return (
+                <CrianzaRow
+                  key={a.id}
+                  icon={CalendarHeart}
+                  title={`Próximo parto: ${animalLabel(a)}`}
+                  meta={meta}
+                  alert={overdue}
+                />
+              );
+            }
+            // destete
+            const partoLabel = a.fecha_parto
+              ? format(parseISO(a.fecha_parto), "d MMM yyyy", { locale: es })
+              : "—";
+            const edadDias = a.fecha_parto
+              ? differenceInCalendarDays(new Date(), parseISO(a.fecha_parto))
+              : 0;
+            const meses = Math.floor(edadDias / 30);
+            const overdue = edadDias > 210;
+            const meta = overdue
+              ? `La cría tiene ${meses} meses (nacida el ${partoLabel})`
+              : `Cría nacida el ${partoLabel}`;
+            return (
+              <CrianzaRow
+                key={a.id}
+                icon={Baby}
+                title={`Destete pendiente: ${animalLabel(a)}`}
+                meta={meta}
+                alert={overdue}
+              />
+            );
+          })}
       </CardContent>
     </Card>
   );
