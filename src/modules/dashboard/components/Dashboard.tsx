@@ -6,7 +6,6 @@ import {
   Baby,
   Syringe,
   Plus,
-  AlertTriangle,
   Stethoscope,
   CalendarHeart,
 } from "lucide-react";
