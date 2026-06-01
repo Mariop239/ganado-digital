@@ -6,9 +6,13 @@ export type AlertaCrianzaTipo = "parto" | "destete";
 export type AlertaCrianza = {
   id: string;
   tipo: AlertaCrianzaTipo;
+  /** id real del registro de historial (sin prefijo) */
+  historial_id: string;
   animal_id: string;
   animal_numero: string;
   animal_nombre: string;
+  /** Toro registrado en el servicio (solo informativo para parto) */
+  toro: string | null;
   /** Fecha clave de la alerta (probable parto o fecha estimada de destete) en ISO YYYY-MM-DD */
   fecha_clave: string;
   /** Para destete: fecha real de parto */
@@ -33,7 +37,7 @@ export function useAlertasCrianza() {
       const { data, error } = await supabase
         .from("historial")
         .select(
-          "id, animal_id, fecha_monta, fecha_probable_parto, fecha_parto, fecha_destete, animals!inner(numero, nombre, estado_actual)",
+          "id, animal_id, toro, fecha_monta, fecha_probable_parto, fecha_parto, fecha_destete, animals!inner(numero, nombre, estado_actual)",
         )
         .eq("animals.estado_actual", "activa");
       if (error) throw error;
@@ -41,9 +45,11 @@ export function useAlertasCrianza() {
       const alertas: AlertaCrianza[] = [];
       for (const r of (data ?? []) as any[]) {
         const base = {
+          historial_id: r.id as string,
           animal_id: r.animal_id as string,
           animal_numero: r.animals?.numero ?? "",
           animal_nombre: r.animals?.nombre ?? "",
+          toro: (r.toro ?? null) as string | null,
         };
         if (!r.fecha_parto) {
           const fecha =

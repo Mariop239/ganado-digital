@@ -31,7 +31,7 @@ export function FormVacuna({ animalId, onDone }: Props) {
     defaultValues: {
       tipo_tratamiento: "vacuna",
       estado_tratamiento: "aplicado",
-      fecha: "",
+      fecha: new Date().toISOString().slice(0, 10),
       vacuna_aplicada: "",
       enfermedad_a_prevenir: "",
       gasto: 0,

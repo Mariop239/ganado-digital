@@ -25,6 +25,7 @@ export function useCreateServicio(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -37,6 +38,7 @@ export function useUpdateServicio(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -45,7 +47,11 @@ export function useDeleteHistorial(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteHistorial(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["historial", animalId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["historial", animalId] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 
@@ -58,6 +64,7 @@ export function useMarcarParida(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

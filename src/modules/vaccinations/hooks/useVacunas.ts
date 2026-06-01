@@ -26,6 +26,7 @@ export function useCreateVacuna(animalId: string) {
       await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
       await qc.invalidateQueries({ queryKey: ["animals"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -40,6 +41,7 @@ export function useCreateVacunasBulk() {
       await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
       await qc.invalidateQueries({ queryKey: ["animals"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -53,6 +55,7 @@ export function useDeleteVacuna() {
       await qc.invalidateQueries({ queryKey: ["animal-events"] });
       await qc.invalidateQueries({ queryKey: ["historial"] });
       await qc.invalidateQueries({ queryKey: ["animals"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
