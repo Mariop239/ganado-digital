@@ -10,6 +10,7 @@ export {
 export { useNacimientosMes } from "./hooks/useNacimientosMes";
 export { useAlertasCrianza } from "./hooks/useAlertasCrianza";
 export type { AlertaCrianza, AlertaCrianzaTipo } from "./hooks/useAlertasCrianza";
+export { useMarcarDestetado } from "./hooks/useMarcarDestetado";
 export { servicioSchema } from "./schemas";
 export type {
   Historial,
