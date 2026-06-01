@@ -20,7 +20,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAnimals, FormAnimal, SelectorAnimal } from "@/modules/animals";
-import { FormHistorial, useNacimientosMes } from "@/modules/breeding";
+import {
+  FormHistorial,
+  useNacimientosMes,
+  useAlertasCrianza,
+  type AlertaCrianza,
+} from "@/modules/breeding";
 import {
   FormControlSanitarioGrupal,
   useGastoSanitarioMes,
