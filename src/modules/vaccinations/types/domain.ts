@@ -11,6 +11,7 @@ export type Vacuna = {
   gasto: number;
   observaciones: string | null;
   fecha_proxima_dosis: string | null;
+  batch_id: string | null;
   created_at: string;
   updated_at: string;
 };
