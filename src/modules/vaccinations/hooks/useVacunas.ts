@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createVacuna, createVacunasBulk, deleteVacuna, listVacunasGlobal, listVacunasPorAnimal,
-  resolverAlerta,
+  resolverAlerta, limpiarProximaDosis,
   type AnimalTarget,
 } from "../repositories/vacunas.repository";
 import type { VacunaInput } from "../types/domain";
@@ -50,8 +50,22 @@ export function useCreateVacunasBulk() {
 export function useResolverAlerta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, fecha }: { id: string; fecha: string }) =>
-      resolverAlerta(id, fecha),
+    mutationFn: ({ id, fecha, fechaProximaDosis }: { id: string; fecha: string; fechaProximaDosis?: string | null }) =>
+      resolverAlerta(id, fecha, fechaProximaDosis ?? null),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["vacunas"] });
+      await qc.invalidateQueries({ queryKey: ["animal-events"] });
+      await qc.invalidateQueries({ queryKey: ["historial"] });
+      await qc.invalidateQueries({ queryKey: ["animals"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useLimpiarProximaDosis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => limpiarProximaDosis(id),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
       await qc.invalidateQueries({ queryKey: ["animal-events"] });

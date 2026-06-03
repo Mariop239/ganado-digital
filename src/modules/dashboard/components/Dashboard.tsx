@@ -56,7 +56,7 @@ const money = (n: number) =>
 type DialogState =
   | { tipo: "animal" }
   | { tipo: "vacuna-grupal" }
-  | { tipo: "vacuna-rapida"; animalId: string; alertaId?: string }
+  | { tipo: "vacuna-rapida"; animalId: string; alertaId?: string; alertaEstado?: "programado" | "aplicado" }
   | { tipo: "parto-selector" }
   | {
       tipo: "parto";
@@ -166,8 +166,8 @@ export function Dashboard() {
             }
           />
           <AlertasSanitarias
-            onRegistrar={(animalId, alertaId) =>
-              setDialog({ tipo: "vacuna-rapida", animalId, alertaId })
+            onRegistrar={(animalId, alertaId, alertaEstado) =>
+              setDialog({ tipo: "vacuna-rapida", animalId, alertaId, alertaEstado })
             }
           />
         </div>
@@ -211,6 +211,7 @@ export function Dashboard() {
             <FormVacuna
               animalId={dialog.animalId}
               alertaId={dialog.alertaId}
+              alertaEstado={dialog.alertaEstado}
               onDone={closeAll}
             />
           )}
@@ -482,7 +483,7 @@ function AlertasCrianza({
 function AlertasSanitarias({
   onRegistrar,
 }: {
-  onRegistrar: (animalId: string, alertaId?: string) => void;
+  onRegistrar: (animalId: string, alertaId?: string, alertaEstado?: "programado" | "aplicado") => void;
 }) {
   const { data, isLoading } = useAlertasSanitariasGlobales();
   const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
@@ -525,7 +526,7 @@ function AlertasSanitarias({
                 title={`${animal} · ${r.vacuna_aplicada}`}
                 meta={meta}
                 overdue={diff < 0}
-                onRegistrar={() => onRegistrar(r.animal_id, r.id)}
+                onRegistrar={() => onRegistrar(r.animal_id, r.id, r.estado_tratamiento as "programado" | "aplicado")}
               />
             );
           })}

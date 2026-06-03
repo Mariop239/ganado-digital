@@ -17,16 +17,17 @@ import {
 } from "@/components/ui/select";
 import { ComboboxFree } from "@/components/ui/combobox-free";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useCreateVacuna, useVacunasGlobal, useResolverAlerta } from "../hooks/useVacunas";
+import { useCreateVacuna, useVacunasGlobal, useResolverAlerta, useLimpiarProximaDosis } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
 type Props = {
   animalId: string;
   alertaId?: string;
+  alertaEstado?: "programado" | "aplicado";
   onDone: () => void;
 };
 
-export function FormVacuna({ animalId, alertaId, onDone }: Props) {
+export function FormVacuna({ animalId, alertaId, alertaEstado, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
@@ -42,6 +43,7 @@ export function FormVacuna({ animalId, alertaId, onDone }: Props) {
   });
   const create = useCreateVacuna(animalId);
   const resolver = useResolverAlerta();
+  const limpiarProxima = useLimpiarProximaDosis();
   const { data: globales } = useVacunasGlobal();
   const productoOptions = (globales ?? [])
     .map((g) => g.vacuna_aplicada)
@@ -51,19 +53,21 @@ export function FormVacuna({ animalId, alertaId, onDone }: Props) {
 
   const onSubmit = async (values: VacunaInput) => {
     try {
-      if (alertaId) {
-        // Si viene de una alerta, actualizamos el registro programado a aplicado
-        await resolver.mutateAsync({ id: alertaId, fecha: values.fecha || new Date().toISOString().slice(0, 10) });
-        
-        // Si el usuario definió una PRÓXIMA dosis, creamos un nuevo registro programado
-        if (values.fecha_proxima_dosis) {
-          await create.mutateAsync({
-            ...values,
-            estado_tratamiento: "programado",
-            fecha: null,
-            gasto: 0, // El gasto ya se registró en la aplicación actual
-          });
-        }
+      if (alertaId && alertaEstado === "aplicado") {
+        // Caso B: la alerta proviene de un registro ya aplicado con próxima dosis.
+        // Creamos un NUEVO registro aplicado (con la nueva próxima dosis si la hay)
+        // y limpiamos la fecha_proxima_dosis del registro antiguo.
+        await create.mutateAsync({ ...values, estado_tratamiento: "aplicado" });
+        await limpiarProxima.mutateAsync(alertaId);
+        toast.success("Tratamiento registrado y alerta resuelta");
+      } else if (alertaId) {
+        // Caso A: la alerta proviene de un registro programado. Lo marcamos como
+        // aplicado y guardamos la próxima dosis (si existe) en ese mismo registro.
+        await resolver.mutateAsync({
+          id: alertaId,
+          fecha: values.fecha || new Date().toISOString().slice(0, 10),
+          fechaProximaDosis: values.fecha_proxima_dosis ?? null,
+        });
         toast.success("Alerta resuelta y tratamiento registrado");
       } else {
         await create.mutateAsync(values);
