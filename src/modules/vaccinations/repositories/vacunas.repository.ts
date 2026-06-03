@@ -68,14 +68,26 @@ export async function createVacunasBulk(
   return { count: count ?? rows.length, batchId };
 }
 
-export async function resolverAlerta(id: string, fechaAplicacion: string): Promise<void> {
+export async function resolverAlerta(
+  id: string,
+  fechaAplicacion: string,
+  fechaProximaDosis: string | null = null,
+): Promise<void> {
   const { error } = await supabase
     .from("control_vacunas")
     .update({
       estado_tratamiento: "aplicado",
       fecha: fechaAplicacion,
-      fecha_proxima_dosis: null,
+      fecha_proxima_dosis: fechaProximaDosis,
     })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function limpiarProximaDosis(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("control_vacunas")
+    .update({ fecha_proxima_dosis: null })
     .eq("id", id);
   if (error) throw error;
 }
