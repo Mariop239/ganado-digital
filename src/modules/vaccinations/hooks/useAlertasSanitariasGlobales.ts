@@ -8,6 +8,7 @@ export type AlertaSanitaria = {
   animal_nombre: string;
   vacuna_aplicada: string;
   tipo_tratamiento: string;
+  estado_tratamiento: string;
   fecha_proxima_dosis: string;
 };
 
@@ -18,9 +19,9 @@ export function useAlertasSanitariasGlobales() {
       const { data, error } = await supabase
         .from("control_vacunas")
         .select(
-          "id, animal_id, vacuna_aplicada, tipo_tratamiento, fecha_proxima_dosis, animals!inner(numero, nombre, estado_actual)",
+          "id, animal_id, vacuna_aplicada, tipo_tratamiento, estado_tratamiento, fecha_proxima_dosis, animals!inner(numero, nombre, estado_actual)",
         )
-        .eq("estado_tratamiento", "programado")
+        .in("estado_tratamiento", ["programado", "aplicado"])
         .not("fecha_proxima_dosis", "is", null)
         .eq("animals.estado_actual", "activa")
         .order("fecha_proxima_dosis", { ascending: true });
@@ -32,6 +33,7 @@ export function useAlertasSanitariasGlobales() {
         animal_nombre: r.animals?.nombre ?? "",
         vacuna_aplicada: r.vacuna_aplicada,
         tipo_tratamiento: r.tipo_tratamiento,
+        estado_tratamiento: r.estado_tratamiento,
         fecha_proxima_dosis: r.fecha_proxima_dosis,
       }));
     },
