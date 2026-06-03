@@ -494,7 +494,12 @@ function AlertasCrianza({
 function AlertasSanitarias({
   onRegistrar,
 }: {
-  onRegistrar: (animalId: string, alertaId?: string, alertaEstado?: "programado" | "aplicado") => void;
+  onRegistrar: (
+    animalId: string,
+    alertaId?: string,
+    alertaEstado?: "programado" | "aplicado",
+    prefill?: { tipo_tratamiento?: string; vacuna_aplicada?: string; enfermedad_a_prevenir?: string },
+  ) => void;
 }) {
   const { data, isLoading } = useAlertasSanitariasGlobales();
   const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
