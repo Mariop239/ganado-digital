@@ -56,7 +56,17 @@ const money = (n: number) =>
 type DialogState =
   | { tipo: "animal" }
   | { tipo: "vacuna-grupal" }
-  | { tipo: "vacuna-rapida"; animalId: string; alertaId?: string; alertaEstado?: "programado" | "aplicado" }
+  | {
+      tipo: "vacuna-rapida";
+      animalId: string;
+      alertaId?: string;
+      alertaEstado?: "programado" | "aplicado";
+      prefill?: {
+        tipo_tratamiento?: string;
+        vacuna_aplicada?: string;
+        enfermedad_a_prevenir?: string;
+      };
+    }
   | { tipo: "parto-selector" }
   | {
       tipo: "parto";
@@ -166,8 +176,8 @@ export function Dashboard() {
             }
           />
           <AlertasSanitarias
-            onRegistrar={(animalId, alertaId, alertaEstado) =>
-              setDialog({ tipo: "vacuna-rapida", animalId, alertaId, alertaEstado })
+            onRegistrar={(animalId, alertaId, alertaEstado, prefill) =>
+              setDialog({ tipo: "vacuna-rapida", animalId, alertaId, alertaEstado, prefill })
             }
           />
         </div>
@@ -212,6 +222,7 @@ export function Dashboard() {
               animalId={dialog.animalId}
               alertaId={dialog.alertaId}
               alertaEstado={dialog.alertaEstado}
+              prefill={dialog.prefill as any}
               onDone={closeAll}
             />
           )}
