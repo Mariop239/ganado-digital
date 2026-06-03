@@ -20,6 +20,7 @@ export function useAlertasSanitariasGlobales() {
         .select(
           "id, animal_id, vacuna_aplicada, tipo_tratamiento, fecha_proxima_dosis, animals!inner(numero, nombre, estado_actual)",
         )
+        .eq("estado_tratamiento", "programado")
         .not("fecha_proxima_dosis", "is", null)
         .eq("animals.estado_actual", "activa")
         .order("fecha_proxima_dosis", { ascending: true });
