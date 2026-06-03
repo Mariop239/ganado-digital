@@ -17,16 +17,15 @@ import {
 } from "@/components/ui/select";
 import { ComboboxFree } from "@/components/ui/combobox-free";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useCreateVacuna, useVacunasGlobal, useResolverAlerta } from "../hooks/useVacunas";
+import { useCreateVacuna, useVacunasGlobal } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
 type Props = {
   animalId: string;
-  alertaId?: string;
   onDone: () => void;
 };
 
-export function FormVacuna({ animalId, alertaId, onDone }: Props) {
+export function FormVacuna({ animalId, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
@@ -41,7 +40,6 @@ export function FormVacuna({ animalId, alertaId, onDone }: Props) {
     },
   });
   const create = useCreateVacuna(animalId);
-  const resolver = useResolverAlerta();
   const { data: globales } = useVacunasGlobal();
   const productoOptions = (globales ?? [])
     .map((g) => g.vacuna_aplicada)
@@ -51,24 +49,8 @@ export function FormVacuna({ animalId, alertaId, onDone }: Props) {
 
   const onSubmit = async (values: VacunaInput) => {
     try {
-      if (alertaId) {
-        // Si viene de una alerta, actualizamos el registro programado a aplicado
-        await resolver.mutateAsync({ id: alertaId, fecha: values.fecha || new Date().toISOString().slice(0, 10) });
-        
-        // Si el usuario definió una PRÓXIMA dosis, creamos un nuevo registro programado
-        if (values.fecha_proxima_dosis) {
-          await create.mutateAsync({
-            ...values,
-            estado_tratamiento: "programado",
-            fecha: null,
-            gasto: 0, // El gasto ya se registró en la aplicación actual
-          });
-        }
-        toast.success("Alerta resuelta y tratamiento registrado");
-      } else {
-        await create.mutateAsync(values);
-        toast.success("Vacuna registrada");
-      }
+      await create.mutateAsync(values);
+      toast.success("Vacuna registrada");
       onDone();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error al guardar");

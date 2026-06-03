@@ -68,18 +68,6 @@ export async function createVacunasBulk(
   return { count: count ?? rows.length, batchId };
 }
 
-export async function resolverAlerta(id: string, fechaAplicacion: string): Promise<void> {
-  const { error } = await supabase
-    .from("control_vacunas")
-    .update({
-      estado_tratamiento: "aplicado",
-      fecha: fechaAplicacion,
-      fecha_proxima_dosis: null,
-    })
-    .eq("id", id);
-  if (error) throw error;
-}
-
 export async function deleteVacuna(id: string): Promise<void> {
   const { error } = await supabase.from("control_vacunas").delete().eq("id", id);
   if (error) throw error;
