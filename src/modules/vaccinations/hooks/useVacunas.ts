@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  createVacuna, createVacunasBulk, deleteVacuna, listVacunasGlobal, listVacunasPorAnimal,
+  createVacuna, updateVacuna, createVacunasBulk, deleteVacuna, listVacunasGlobal, listVacunasPorAnimal,
   resolverAlerta, limpiarProximaDosis,
   type AnimalTarget,
 } from "../repositories/vacunas.repository";
@@ -22,6 +22,21 @@ export function useCreateVacuna(animalId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: VacunaInput) => createVacuna(animalId, input),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["vacunas"] });
+      await qc.invalidateQueries({ queryKey: ["animal-events"] });
+      await qc.invalidateQueries({ queryKey: ["historial"] });
+      await qc.invalidateQueries({ queryKey: ["animals"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useUpdateVacuna() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: VacunaInput }) =>
+      updateVacuna(id, input),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["vacunas"] });
       await qc.invalidateQueries({ queryKey: ["animal-events"] });

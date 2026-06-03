@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Eye, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDeleteVacuna, useVacunasPorAnimal } from "../hooks/useVacunas";
 import { FormVacuna } from "./FormVacuna";
@@ -22,6 +25,7 @@ import {
   type TipoTratamiento,
   type EstadoTratamiento,
 } from "../schemas";
+import type { Vacuna, VacunaInput } from "../types/domain";
 import { toast } from "sonner";
 
 const fmt = (d: string | null) => (d ? format(parseISO(d), "d MMM yyyy", { locale: es }) : "—");
@@ -71,6 +75,9 @@ export function VacunasTablaVaca({ animalId }: Props) {
   const { data, isLoading } = useVacunasPorAnimal(animalId);
   const del = useDeleteVacuna();
   const [openCreate, setOpenCreate] = useState(false);
+  const [detail, setDetail] = useState<Vacuna | null>(null);
+  const [editing, setEditing] = useState<Vacuna | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Vacuna | null>(null);
 
   return (
     <section className="space-y-3">
@@ -113,7 +120,11 @@ export function VacunasTablaVaca({ animalId }: Props) {
               <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Sin tratamientos registrados.</TableCell></TableRow>
             )}
             {data?.map((r) => (
-              <TableRow key={r.id}>
+              <TableRow
+                key={r.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setDetail(r)}
+              >
                 <TableCell>
                   <Badge variant="secondary">
                     {TIPO_TRATAMIENTO_LABELS[r.tipo_tratamiento as TipoTratamiento] ?? r.tipo_tratamiento}
@@ -125,33 +136,147 @@ export function VacunasTablaVaca({ animalId }: Props) {
                 <TableCell><ProximaDosisBadge fecha={r.fecha_proxima_dosis} /></TableCell>
                 <TableCell className="text-right">{money(r.gasto)}</TableCell>
                 <TableCell className="max-w-xs truncate" title={r.observaciones ?? ""}>{r.observaciones || "—"}</TableCell>
-                <TableCell className="text-right">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar tratamiento?</AlertDialogTitle>
-                        <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => {
-                          try { await del.mutateAsync(r.id); toast.success("Tratamiento eliminado"); }
-                          catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Error"); }
-                        }}>Eliminar</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={() => setDetail(r)}
+                    aria-label="Ver detalles"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Sheet de detalle */}
+      <Sheet open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Detalle del tratamiento</SheetTitle>
+            <SheetDescription>
+              Información completa del registro sanitario.
+            </SheetDescription>
+          </SheetHeader>
+          {detail && (
+            <div className="mt-6 space-y-4 text-sm">
+              <DetailField label="Tipo">
+                <Badge variant="secondary">
+                  {TIPO_TRATAMIENTO_LABELS[detail.tipo_tratamiento as TipoTratamiento] ?? detail.tipo_tratamiento}
+                </Badge>
+              </DetailField>
+              <DetailField label="Estado">
+                <EstadoBadge estado={detail.estado_tratamiento} />
+              </DetailField>
+              <DetailField label="Producto / Medicamento">
+                <span className="font-medium">{detail.vacuna_aplicada}</span>
+              </DetailField>
+              <DetailField label="Enfermedad o motivo">
+                {detail.enfermedad_a_prevenir || "—"}
+              </DetailField>
+              <DetailField label="Fecha de aplicación">{fmt(detail.fecha)}</DetailField>
+              <DetailField label="Próxima dosis">
+                <ProximaDosisBadge fecha={detail.fecha_proxima_dosis} />
+              </DetailField>
+              <DetailField label="Gasto">{money(detail.gasto)}</DetailField>
+              <DetailField label="Observaciones">
+                <p className="whitespace-pre-wrap text-muted-foreground">
+                  {detail.observaciones || "—"}
+                </p>
+              </DetailField>
+              <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:justify-end">
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmDelete(detail)}
+                  className="min-h-11"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditing(detail);
+                    setDetail(null);
+                  }}
+                  className="min-h-11"
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Dialog de edición */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar tratamiento</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <FormVacuna
+              animalId={animalId}
+              editId={editing.id}
+              initialValues={vacunaToInput(editing)}
+              onDone={() => setEditing(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación de borrado */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar tratamiento?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!confirmDelete) return;
+                try {
+                  await del.mutateAsync(confirmDelete.id);
+                  toast.success("Tratamiento eliminado");
+                  setConfirmDelete(null);
+                  setDetail(null);
+                } catch (e: unknown) {
+                  toast.error(e instanceof Error ? e.message : "Error");
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
+}
+
+function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] items-start gap-3">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+      <div className="text-sm text-foreground">{children}</div>
+    </div>
+  );
+}
+
+function vacunaToInput(v: Vacuna): Partial<VacunaInput> {
+  return {
+    tipo_tratamiento: v.tipo_tratamiento,
+    estado_tratamiento: v.estado_tratamiento,
+    fecha: v.fecha ?? "",
+    vacuna_aplicada: v.vacuna_aplicada,
+    enfermedad_a_prevenir: v.enfermedad_a_prevenir ?? "",
+    gasto: Number(v.gasto) || 0,
+    observaciones: v.observaciones ?? "",
+    fecha_proxima_dosis: v.fecha_proxima_dosis ?? null,
+  };
 }

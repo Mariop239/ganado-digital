@@ -47,6 +47,20 @@ export async function createVacuna(
   return data as Vacuna;
 }
 
+export async function updateVacuna(
+  id: string,
+  input: VacunaInput,
+): Promise<Vacuna> {
+  const { data, error } = await supabase
+    .from("control_vacunas")
+    .update(normalize(input))
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Vacuna;
+}
+
 export type AnimalTarget = { animal_id: string };
 
 export async function createVacunasBulk(
