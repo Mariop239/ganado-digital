@@ -17,17 +17,22 @@ import {
 } from "@/components/ui/select";
 import { ComboboxFree } from "@/components/ui/combobox-free";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useCreateVacuna, useVacunasGlobal, useResolverAlerta, useLimpiarProximaDosis } from "../hooks/useVacunas";
+import { useCreateVacuna, useUpdateVacuna, useVacunasGlobal, useResolverAlerta, useLimpiarProximaDosis } from "../hooks/useVacunas";
 import { toast } from "sonner";
 
 type Props = {
   animalId: string;
   alertaId?: string;
   alertaEstado?: "programado" | "aplicado";
+  /** Prefill values when opening from an alert (suggests the same treatment as the original). */
+  prefill?: Partial<Pick<VacunaInput, "tipo_tratamiento" | "vacuna_aplicada" | "enfermedad_a_prevenir">>;
+  /** When provided, the form is in edit mode and updates this record. */
+  editId?: string;
+  initialValues?: Partial<VacunaInput>;
   onDone: () => void;
 };
 
-export function FormVacuna({ animalId, alertaId, alertaEstado, onDone }: Props) {
+export function FormVacuna({ animalId, alertaId, alertaEstado, prefill, editId, initialValues, onDone }: Props) {
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
@@ -39,9 +44,12 @@ export function FormVacuna({ animalId, alertaId, alertaEstado, onDone }: Props) 
       gasto: 0,
       observaciones: "",
       fecha_proxima_dosis: null,
+      ...(prefill ?? {}),
+      ...(initialValues ?? {}),
     },
   });
   const create = useCreateVacuna(animalId);
+  const update = useUpdateVacuna();
   const resolver = useResolverAlerta();
   const limpiarProxima = useLimpiarProximaDosis();
   const { data: globales } = useVacunasGlobal();
@@ -53,7 +61,10 @@ export function FormVacuna({ animalId, alertaId, alertaEstado, onDone }: Props) 
 
   const onSubmit = async (values: VacunaInput) => {
     try {
-      if (alertaId && alertaEstado === "aplicado") {
+      if (editId) {
+        await update.mutateAsync({ id: editId, input: values });
+        toast.success("Tratamiento actualizado");
+      } else if (alertaId && alertaEstado === "aplicado") {
         // Caso B: la alerta proviene de un registro ya aplicado con próxima dosis.
         // Creamos un NUEVO registro aplicado (con la nueva próxima dosis si la hay)
         // y limpiamos la fecha_proxima_dosis del registro antiguo.
@@ -198,7 +209,10 @@ export function FormVacuna({ animalId, alertaId, alertaEstado, onDone }: Props) 
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2">
-        <OfflineAwareSubmit label="Registrar tratamiento" submitting={form.formState.isSubmitting} />
+        <OfflineAwareSubmit
+          label={editId ? "Guardar cambios" : "Registrar tratamiento"}
+          submitting={form.formState.isSubmitting}
+        />
       </div>
     </form>
   );
