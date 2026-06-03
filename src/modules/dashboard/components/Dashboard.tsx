@@ -542,7 +542,18 @@ function AlertasSanitarias({
                 title={`${animal} · ${r.vacuna_aplicada}`}
                 meta={meta}
                 overdue={diff < 0}
-                onRegistrar={() => onRegistrar(r.animal_id, r.id, r.estado_tratamiento as "programado" | "aplicado")}
+                onRegistrar={() =>
+                  onRegistrar(
+                    r.animal_id,
+                    r.id,
+                    r.estado_tratamiento as "programado" | "aplicado",
+                    {
+                      tipo_tratamiento: r.tipo_tratamiento,
+                      vacuna_aplicada: r.vacuna_aplicada,
+                      enfermedad_a_prevenir: r.enfermedad_a_prevenir,
+                    },
+                  )
+                }
               />
             );
           })}
