@@ -483,7 +483,7 @@ function AlertasCrianza({
 function AlertasSanitarias({
   onRegistrar,
 }: {
-  onRegistrar: (animalId: string, alertaId?: string) => void;
+  onRegistrar: (animalId: string, alertaId?: string, alertaEstado?: "programado" | "aplicado") => void;
 }) {
   const { data, isLoading } = useAlertasSanitariasGlobales();
   const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
@@ -526,7 +526,7 @@ function AlertasSanitarias({
                 title={`${animal} · ${r.vacuna_aplicada}`}
                 meta={meta}
                 overdue={diff < 0}
-                onRegistrar={() => onRegistrar(r.animal_id, r.id)}
+                onRegistrar={() => onRegistrar(r.animal_id, r.id, r.estado_tratamiento as "programado" | "aplicado")}
               />
             );
           })}
