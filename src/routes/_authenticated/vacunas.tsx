@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Syringe, CalendarClock, Beef, Plus, AlarmClock, ChevronRight, ChevronDown, Layers } from "lucide-react";
+import { Syringe, CalendarClock, Beef, Plus, AlarmClock, ChevronRight, ChevronDown, Layers, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,12 @@ import {
 import {
   useVacunasGlobal,
   FormControlSanitarioGrupal,
+  VacunaDetailSheet,
   TIPO_TRATAMIENTO_LABELS,
   ESTADO_TRATAMIENTO_LABELS,
   type TipoTratamiento,
   type EstadoTratamiento,
+  type VacunaConVaca,
 } from "@/modules/vaccinations";
 
 export const Route = createFileRoute("/_authenticated/vacunas")({
@@ -48,6 +50,7 @@ function ControlSanitarioPage() {
   const [producto, setProducto] = useState<string>("todos");
   const [openGrupal, setOpenGrupal] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [detail, setDetail] = useState<VacunaConVaca | null>(null);
   const toggleBatch = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -237,20 +240,25 @@ function ControlSanitarioPage() {
               <TableHead>Aplicación</TableHead>
               <TableHead>Programada / próxima</TableHead>
               <TableHead className="text-right">Gasto</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="py-6 text-center text-muted-foreground">Cargando…</TableCell></TableRow>
             )}
             {!isLoading && grouped.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Sin registros.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="py-6 text-center text-muted-foreground">Sin registros.</TableCell></TableRow>
             )}
             {grouped.map((row) => {
               if (row.kind === "single") {
                 const r = row.vacuna;
                 return (
-                  <TableRow key={r.id}>
+                  <TableRow
+                    key={r.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setDetail(r)}
+                  >
                     <TableCell />
                     <TableCell className="font-medium">
                       #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
@@ -265,6 +273,17 @@ function ControlSanitarioPage() {
                     <TableCell>{fmt(r.fecha)}</TableCell>
                     <TableCell>{fmt(r.fecha_proxima_dosis)}</TableCell>
                     <TableCell className="text-right">{money(r.gasto)}</TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => setDetail(r)}
+                        aria-label="Ver detalles"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               }
@@ -296,10 +315,15 @@ function ControlSanitarioPage() {
                     <TableCell>{fmt(row.fecha)}</TableCell>
                     <TableCell>{fmt(row.fecha_proxima_dosis)}</TableCell>
                     <TableCell className="text-right font-medium">{money(row.gasto_total)}</TableCell>
+                    <TableCell />
                   </TableRow>
                   {isOpen &&
                     row.items.map((r) => (
-                      <TableRow key={r.id} className="bg-muted/10">
+                      <TableRow
+                        key={r.id}
+                        className="cursor-pointer bg-muted/10 hover:bg-muted/30"
+                        onClick={() => setDetail(r)}
+                      >
                         <TableCell />
                         <TableCell className="pl-8 text-sm">
                           #{r.animals?.numero ?? "—"}{r.animals?.nombre ? ` — ${r.animals.nombre}` : ""}
@@ -308,6 +332,17 @@ function ControlSanitarioPage() {
                           Incluido en el lote
                         </TableCell>
                         <TableCell className="text-right text-sm">{money(r.gasto)}</TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={() => setDetail(r)}
+                            aria-label="Ver detalles"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                 </Fragment>
@@ -316,6 +351,16 @@ function ControlSanitarioPage() {
           </TableBody>
         </Table>
       </div>
+
+      <VacunaDetailSheet
+        vacuna={detail}
+        onClose={() => setDetail(null)}
+        headerExtra={
+          detail?.animals
+            ? `Animal #${detail.animals.numero}${detail.animals.nombre ? ` — ${detail.animals.nombre}` : ""}`
+            : undefined
+        }
+      />
     </div>
   );
 }
