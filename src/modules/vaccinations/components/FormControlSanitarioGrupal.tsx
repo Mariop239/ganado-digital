@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { AlertTriangle, Search, X } from "lucide-react";
+import { AlertTriangle, Search, X, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
@@ -63,6 +63,7 @@ export function FormControlSanitarioGrupal({
     () => new Set(animalesIdsPreseleccionados ?? []),
   );
   const [q, setQ] = useState("");
+  const [loteFiltro, setLoteFiltro] = useState<string>("todos");
 
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
@@ -81,6 +82,15 @@ export function FormControlSanitarioGrupal({
   const bulk = useCreateVacunasBulk();
   const resolver = useResolverAlertasBulk();
 
+  // Obtener lista de lotes únicos de los animales activos
+  const lotesDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    (animales ?? []).forEach((a) => {
+      if (a.lote_actual?.trim()) set.add(a.lote_actual.trim());
+    });
+    return Array.from(set).sort();
+  }, [animales]);
+
   // Mantén la pre-selección sincronizada cuando lleguen los animales
   useEffect(() => {
     if (modoResolucion && animalesIdsPreseleccionados?.length) {
@@ -89,17 +99,23 @@ export function FormControlSanitarioGrupal({
   }, [modoResolucion, animalesIdsPreseleccionados]);
 
   const lista = useMemo(() => {
-    const rows = animales ?? [];
+    let rows = animales ?? [];
     if (modoResolucion && animalesIdsPreseleccionados?.length) {
       const set = new Set(animalesIdsPreseleccionados);
       return rows.filter((a) => set.has(a.id));
     }
+    
+    // Filtro por lote
+    if (loteFiltro !== "todos") {
+      rows = rows.filter((a) => a.lote_actual === loteFiltro);
+    }
+
     if (!q.trim()) return rows;
     const s = q.toLowerCase();
     return rows.filter((a) =>
       [a.numero, a.nombre].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
     );
-  }, [animales, q, modoResolucion, animalesIdsPreseleccionados]);
+  }, [animales, q, modoResolucion, animalesIdsPreseleccionados, loteFiltro]);
 
   const toggle = (id: string) => {
     if (modoResolucion) return;
@@ -110,11 +126,44 @@ export function FormControlSanitarioGrupal({
       return next;
     });
   };
+  
   const toggleTodos = (checked: boolean) => {
     if (modoResolucion) return;
-    if (!checked) return setSeleccionados(new Set());
-    setSeleccionados(new Set(lista.map((a) => a.id)));
+    if (!checked) {
+      // Si estamos filtrando por lote, solo deseleccionamos los del lote visible
+      if (loteFiltro !== "todos") {
+        setSeleccionados((prev) => {
+          const next = new Set(prev);
+          lista.forEach((a) => next.delete(a.id));
+          return next;
+        });
+      } else {
+        setSeleccionados(new Set());
+      }
+      return;
+    }
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      lista.forEach((a) => next.add(a.id));
+      return next;
+    });
   };
+
+  const selectPorLote = (lote: string) => {
+    setLoteFiltro(lote);
+    if (lote !== "todos") {
+      const idsDelLote = (animales ?? [])
+        .filter((a) => a.lote_actual === lote)
+        .map((a) => a.id);
+      setSeleccionados((prev) => {
+        const next = new Set(prev);
+        idsDelLote.forEach((id) => next.add(id));
+        return next;
+      });
+      toast.info(`Lote "${lote}" seleccionado (${idsDelLote.length} animales)`);
+    }
+  };
+
   const todosVisibles =
     lista.length > 0 && lista.every((a) => seleccionados.has(a.id));
 
@@ -173,47 +222,70 @@ export function FormControlSanitarioGrupal({
         </div>
       )}
 
-      <section className="space-y-2">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base">
-            {modoResolucion ? "Animales del lote" : "Animales activos *"}
+          <Label className="text-base font-semibold">
+            {modoResolucion ? "Animales del lote" : "Selección de animales *"}
           </Label>
-          <Badge variant="secondary">{seleccionados.size} seleccionados</Badge>
+          <Badge variant="secondary" className="h-6">{seleccionados.size} seleccionados</Badge>
         </div>
+
         {!modoResolucion && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por número o nombre…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="h-11 pl-9"
-          />
-          {q && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-              onClick={() => setQ("")}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        )}
-        <div className="rounded-lg border border-border">
-          {!modoResolucion && (
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <Checkbox
-              id="todos-grupal"
-              checked={todosVisibles}
-              onCheckedChange={(c) => toggleTodos(c === true)}
-            />
-            <Label htmlFor="todos-grupal" className="cursor-pointer text-sm">
-              Seleccionar todos los visibles ({lista.length})
-            </Label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número o nombre…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="h-11 pl-9"
+              />
+              {q && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                  onClick={() => setQ("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="relative">
+              <Layers className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Select value={loteFiltro} onValueChange={selectPorLote}>
+                <SelectTrigger className="h-11 pl-9">
+                  <SelectValue placeholder="Seleccionar por lote" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los animales</SelectItem>
+                  {lotesDisponibles.map((lote) => (
+                    <SelectItem key={lote} value={lote}>
+                      Lote: {lote}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+        )}
+
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {!modoResolucion && (
+            <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
+              <Checkbox
+                id="todos-grupal"
+                checked={todosVisibles}
+                onCheckedChange={(c) => toggleTodos(c === true)}
+              />
+              <Label htmlFor="todos-grupal" className="cursor-pointer text-sm font-medium">
+                {loteFiltro === "todos" 
+                  ? `Seleccionar todos (${lista.length})` 
+                  : `Seleccionar todo el lote "${loteFiltro}" (${lista.length})`}
+              </Label>
+            </div>
           )}
           <ScrollArea className="h-56">
             <div className="divide-y divide-border">
@@ -221,8 +293,8 @@ export function FormControlSanitarioGrupal({
                 <div className="px-3 py-4 text-sm text-muted-foreground">Cargando animales…</div>
               )}
               {!loadingAnimales && lista.length === 0 && (
-                <div className="px-3 py-4 text-sm text-muted-foreground">
-                  Sin animales activos.
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  No se encontraron animales {loteFiltro !== "todos" ? `en el lote "${loteFiltro}"` : ""}.
                 </div>
               )}
               {lista.map((a) => {
@@ -233,10 +305,11 @@ export function FormControlSanitarioGrupal({
                     key={a.id}
                     htmlFor={id}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2",
+                      "flex items-center gap-3 px-3 py-2.5 transition-colors",
                       modoResolucion
                         ? "cursor-not-allowed opacity-90"
                         : "cursor-pointer hover:bg-muted/50",
+                      checked && !modoResolucion && "bg-primary/5"
                     )}
                   >
                     <Checkbox
@@ -245,9 +318,16 @@ export function FormControlSanitarioGrupal({
                       disabled={modoResolucion}
                       onCheckedChange={() => toggle(a.id)}
                     />
-                    <span className="text-sm font-medium">#{a.numero}</span>
-                    {a.nombre && (
-                      <span className="text-sm text-muted-foreground">— {a.nombre}</span>
+                    <div className="flex flex-1 flex-col">
+                      <span className="text-sm font-semibold text-foreground">#{a.numero}</span>
+                      {a.nombre && (
+                        <span className="text-xs text-muted-foreground">{a.nombre}</span>
+                      )}
+                    </div>
+                    {a.lote_actual && loteFiltro === "todos" && (
+                      <Badge variant="outline" className="text-[10px] font-normal px-1.5 h-5">
+                        {a.lote_actual}
+                      </Badge>
                     )}
                   </label>
                 );
@@ -259,7 +339,7 @@ export function FormControlSanitarioGrupal({
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label className="text-base">Estado del tratamiento *</Label>
+          <Label className="text-base font-semibold">Estado del tratamiento *</Label>
           <Controller
             control={form.control}
             name="estado_tratamiento"
@@ -268,9 +348,9 @@ export function FormControlSanitarioGrupal({
                 value={field.value}
                 onValueChange={(v) => field.onChange(v as EstadoTratamiento)}
               >
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="aplicado">Aplicado</TabsTrigger>
-                  <TabsTrigger value="programado">Programado</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 h-11">
+                  <TabsTrigger value="aplicado" className="text-sm">Aplicado</TabsTrigger>
+                  <TabsTrigger value="programado" className="text-sm">Programado</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
@@ -278,7 +358,7 @@ export function FormControlSanitarioGrupal({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-base">Tipo de tratamiento *</Label>
+          <Label className="text-base font-semibold">Tipo de tratamiento *</Label>
           <Controller
             control={form.control}
             name="tipo_tratamiento"
@@ -302,7 +382,7 @@ export function FormControlSanitarioGrupal({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="gasto-grupal" className="text-base">Gasto por animal ($)</Label>
+          <Label htmlFor="gasto-grupal" className="text-base font-semibold">Gasto por animal ($)</Label>
           <Input
             id="gasto-grupal"
             type="number"
@@ -315,7 +395,7 @@ export function FormControlSanitarioGrupal({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label className="text-base">Producto / medicamento *</Label>
+          <Label className="text-base font-semibold">Producto / medicamento *</Label>
           <Controller
             control={form.control}
             name="vacuna_aplicada"
@@ -333,7 +413,7 @@ export function FormControlSanitarioGrupal({
 
         {estado === "aplicado" && (
           <div className="space-y-2">
-            <Label htmlFor="fecha-grupal" className="text-base">Fecha de aplicación *</Label>
+            <Label htmlFor="fecha-grupal" className="text-base font-semibold">Fecha de aplicación *</Label>
             <Controller
               control={form.control}
               name="fecha"
@@ -353,7 +433,7 @@ export function FormControlSanitarioGrupal({
         )}
 
         <div className={cn("space-y-2", estado === "programado" && "sm:col-span-2")}>
-          <Label className="text-base">
+          <Label className="text-base font-semibold">
             {estado === "programado"
               ? "Fecha programada *"
               : "Próxima dosis (opcional)"}
@@ -374,7 +454,7 @@ export function FormControlSanitarioGrupal({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="obs-grupal" className="text-base">Observaciones</Label>
+          <Label htmlFor="obs-grupal" className="text-base font-semibold">Observaciones</Label>
           <Textarea id="obs-grupal" rows={2} {...form.register("observaciones")} />
         </div>
       </section>
