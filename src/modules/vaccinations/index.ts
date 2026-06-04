@@ -7,6 +7,7 @@ export {
   useVacunasPorAnimal,
   useCreateVacuna,
   useCreateVacunasBulk,
+  useResolverAlertasBulk,
   useDeleteVacuna,
 } from "./hooks/useVacunas";
 export { useGastoSanitarioMes } from "./hooks/useGastoSanitarioMes";
