@@ -45,6 +45,7 @@ import {
   useGastoSanitarioMes,
   useAlertasSanitariasGlobales,
 } from "@/modules/vaccinations";
+import type { AlertaSanitaria, TipoTratamiento } from "@/modules/vaccinations";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -56,6 +57,18 @@ const money = (n: number) =>
 type DialogState =
   | { tipo: "animal" }
   | { tipo: "vacuna-grupal" }
+  | {
+      tipo: "vacuna-grupal-resolver";
+      alertasIds: string[];
+      animalesIds: string[];
+      modoResolucionTipo: "update" | "create_and_clear";
+      prefill: {
+        tipo_tratamiento?: TipoTratamiento;
+        vacuna_aplicada?: string;
+        enfermedad_a_prevenir?: string;
+        fecha_proxima_dosis?: string | null;
+      };
+    }
   | {
       tipo: "vacuna-rapida";
       animalId: string;
@@ -179,6 +192,9 @@ export function Dashboard() {
             onRegistrar={(animalId, alertaId, alertaEstado, prefill) =>
               setDialog({ tipo: "vacuna-rapida", animalId, alertaId, alertaEstado, prefill })
             }
+            onResolverLote={(payload) =>
+              setDialog({ tipo: "vacuna-grupal-resolver", ...payload })
+            }
           />
         </div>
       </section>
@@ -200,11 +216,33 @@ export function Dashboard() {
         open={dialog?.tipo === "vacuna-grupal"}
         onOpenChange={(v) => (!v ? closeAll() : null)}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registro sanitario grupal</DialogTitle>
           </DialogHeader>
           <FormControlSanitarioGrupal onDone={closeAll} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Resolución masiva de alertas sanitarias */}
+      <Dialog
+        open={dialog?.tipo === "vacuna-grupal-resolver"}
+        onOpenChange={(v) => (!v ? closeAll() : null)}
+      >
+        <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Resolver lote sanitario</DialogTitle>
+          </DialogHeader>
+          {dialog?.tipo === "vacuna-grupal-resolver" && (
+            <FormControlSanitarioGrupal
+              onDone={closeAll}
+              modoResolucion
+              alertasIds={dialog.alertasIds}
+              animalesIdsPreseleccionados={dialog.animalesIds}
+              modoResolucionTipo={dialog.modoResolucionTipo}
+              prefill={dialog.prefill}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -213,7 +251,7 @@ export function Dashboard() {
         open={dialog?.tipo === "vacuna-rapida"}
         onOpenChange={(v) => (!v ? closeAll() : null)}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registrar tratamiento</DialogTitle>
           </DialogHeader>
@@ -493,6 +531,7 @@ function AlertasCrianza({
 
 function AlertasSanitarias({
   onRegistrar,
+  onResolverLote,
 }: {
   onRegistrar: (
     animalId: string,
@@ -500,9 +539,31 @@ function AlertasSanitarias({
     alertaEstado?: "programado" | "aplicado",
     prefill?: { tipo_tratamiento?: string; vacuna_aplicada?: string; enfermedad_a_prevenir?: string },
   ) => void;
+  onResolverLote: (payload: {
+    alertasIds: string[];
+    animalesIds: string[];
+    modoResolucionTipo: "update" | "create_and_clear";
+    prefill: {
+      tipo_tratamiento?: TipoTratamiento;
+      vacuna_aplicada?: string;
+      enfermedad_a_prevenir?: string;
+      fecha_proxima_dosis?: string | null;
+    };
+  }) => void;
 }) {
   const { data, isLoading } = useAlertasSanitariasGlobales();
-  const proximas = useMemo(() => (data ?? []).slice(0, 5), [data]);
+
+  // Agrupar por vacuna_aplicada + fecha_proxima_dosis + batch_id
+  const grupos = useMemo(() => {
+    const map = new Map<string, AlertaSanitaria[]>();
+    for (const a of data ?? []) {
+      const key = `${a.vacuna_aplicada}|${a.fecha_proxima_dosis}|${a.batch_id ?? `solo-${a.id}`}`;
+      const arr = map.get(key) ?? [];
+      arr.push(a);
+      map.set(key, arr);
+    }
+    return Array.from(map.values()).slice(0, 5);
+  }, [data]);
 
   return (
     <Card className="border-sky-500/40 bg-sky-50/40 dark:bg-sky-950/10">
@@ -519,13 +580,14 @@ function AlertasSanitarias({
             <Skeleton className="h-3 w-1/2" />
           </div>
         )}
-        {!isLoading && proximas.length === 0 && (
+        {!isLoading && grupos.length === 0 && (
           <div className="p-4 text-sm text-muted-foreground">
             Todo al día. No hay vacunas próximas.
           </div>
         )}
         {!isLoading &&
-          proximas.map((r) => {
+          grupos.map((grupo) => {
+            const r = grupo[0];
             const fecha = parseISO(r.fecha_proxima_dosis);
             const diff = differenceInCalendarDays(fecha, new Date());
             const label = format(fecha, "d MMM yyyy", { locale: es });
@@ -535,6 +597,38 @@ function AlertasSanitarias({
                 : diff === 0
                   ? `Hoy: ${label}`
                   : `En ${diff} día${diff === 1 ? "" : "s"}: ${label}`;
+
+            if (grupo.length > 1) {
+              const aplicado = grupo.every(
+                (g) => g.estado_tratamiento === "aplicado",
+              );
+              const modoResolucionTipo: "update" | "create_and_clear" =
+                aplicado ? "create_and_clear" : "update";
+              return (
+                <SanitariaRow
+                  key={`lote-${r.batch_id ?? r.id}`}
+                  title={`Lote: ${r.vacuna_aplicada} (${grupo.length} animales)`}
+                  meta={meta}
+                  overdue={diff < 0}
+                  buttonLabel="Resolver Lote"
+                  onRegistrar={() =>
+                    onResolverLote({
+                      alertasIds: grupo.map((g) => g.id),
+                      animalesIds: grupo.map((g) => g.animal_id),
+                      modoResolucionTipo,
+                      prefill: {
+                        tipo_tratamiento:
+                          r.tipo_tratamiento as TipoTratamiento,
+                        vacuna_aplicada: r.vacuna_aplicada,
+                        enfermedad_a_prevenir: r.enfermedad_a_prevenir,
+                        fecha_proxima_dosis: null,
+                      },
+                    })
+                  }
+                />
+              );
+            }
+
             const animal = `#${r.animal_numero}${r.animal_nombre ? ` — ${r.animal_nombre}` : ""}`;
             return (
               <SanitariaRow
@@ -567,11 +661,13 @@ function SanitariaRow({
   meta,
   overdue,
   onRegistrar,
+  buttonLabel = "Registrar",
 }: {
   title: string;
   meta: string;
   overdue: boolean;
   onRegistrar: () => void;
+  buttonLabel?: string;
 }) {
   return (
     <div className="flex items-start gap-3 p-4">
@@ -589,7 +685,7 @@ function SanitariaRow({
       <div className="ml-auto shrink-0">
         <Button type="button" size="sm" variant="outline" onClick={onRegistrar}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Registrar</span>
+          <span className="hidden sm:inline">{buttonLabel}</span>
         </Button>
       </div>
     </div>

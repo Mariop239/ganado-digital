@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Search, X } from "lucide-react";
+import { AlertTriangle, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OfflineAwareSubmit } from "@/components/ui/offline-aware-submit";
@@ -27,44 +27,82 @@ import {
   type EstadoTratamiento,
 } from "../schemas";
 import type { VacunaInput } from "../types/domain";
-import { useCreateVacunasBulk, useVacunasGlobal } from "../hooks/useVacunas";
+import {
+  useCreateVacunasBulk,
+  useResolverAlertasBulk,
+  useVacunasGlobal,
+} from "../hooks/useVacunas";
 
-type Props = { onDone: () => void };
+type Props = {
+  onDone: () => void;
+  alertasIds?: string[];
+  modoResolucion?: boolean;
+  animalesIdsPreseleccionados?: string[];
+  modoResolucionTipo?: "update" | "create_and_clear";
+  prefill?: {
+    tipo_tratamiento?: TipoTratamiento;
+    vacuna_aplicada?: string;
+    enfermedad_a_prevenir?: string;
+    fecha_proxima_dosis?: string | null;
+  };
+};
 
-export function FormControlSanitarioGrupal({ onDone }: Props) {
+export function FormControlSanitarioGrupal({
+  onDone,
+  alertasIds,
+  modoResolucion = false,
+  animalesIdsPreseleccionados,
+  modoResolucionTipo = "update",
+  prefill,
+}: Props) {
   const { data: animales, isLoading: loadingAnimales } = useAnimals({ estado_actual: "activa" });
   const { data: globales } = useVacunasGlobal();
   const productoOptions = (globales ?? []).map((g) => g.vacuna_aplicada).filter(Boolean);
 
-  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(
+    () => new Set(animalesIdsPreseleccionados ?? []),
+  );
   const [q, setQ] = useState("");
 
   const form = useForm<VacunaInput>({
     resolver: zodResolver(vacunaSchema),
     defaultValues: {
-      tipo_tratamiento: "vacuna",
+      tipo_tratamiento: (prefill?.tipo_tratamiento as TipoTratamiento) ?? "vacuna",
       estado_tratamiento: "aplicado",
       fecha: format(new Date(), "yyyy-MM-dd"),
-      vacuna_aplicada: "",
-      enfermedad_a_prevenir: "",
+      vacuna_aplicada: prefill?.vacuna_aplicada ?? "",
+      enfermedad_a_prevenir: prefill?.enfermedad_a_prevenir ?? "",
       gasto: 0,
       observaciones: "",
-      fecha_proxima_dosis: null,
+      fecha_proxima_dosis: prefill?.fecha_proxima_dosis ?? null,
     },
   });
   const estado = form.watch("estado_tratamiento");
   const bulk = useCreateVacunasBulk();
+  const resolver = useResolverAlertasBulk();
+
+  // Mantén la pre-selección sincronizada cuando lleguen los animales
+  useEffect(() => {
+    if (modoResolucion && animalesIdsPreseleccionados?.length) {
+      setSeleccionados(new Set(animalesIdsPreseleccionados));
+    }
+  }, [modoResolucion, animalesIdsPreseleccionados]);
 
   const lista = useMemo(() => {
     const rows = animales ?? [];
+    if (modoResolucion && animalesIdsPreseleccionados?.length) {
+      const set = new Set(animalesIdsPreseleccionados);
+      return rows.filter((a) => set.has(a.id));
+    }
     if (!q.trim()) return rows;
     const s = q.toLowerCase();
     return rows.filter((a) =>
       [a.numero, a.nombre].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
     );
-  }, [animales, q]);
+  }, [animales, q, modoResolucion, animalesIdsPreseleccionados]);
 
   const toggle = (id: string) => {
+    if (modoResolucion) return;
     setSeleccionados((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -73,6 +111,7 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
     });
   };
   const toggleTodos = (checked: boolean) => {
+    if (modoResolucion) return;
     if (!checked) return setSeleccionados(new Set());
     setSeleccionados(new Set(lista.map((a) => a.id)));
   };
@@ -80,6 +119,24 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
     lista.length > 0 && lista.every((a) => seleccionados.has(a.id));
 
   const onSubmit = async (values: VacunaInput) => {
+    if (modoResolucion) {
+      if (!alertasIds?.length) {
+        toast.error("No hay alertas para resolver");
+        return;
+      }
+      try {
+        const { count } = await resolver.mutateAsync({
+          ids: alertasIds,
+          input: values,
+          modo: modoResolucionTipo,
+        });
+        toast.success(`Lote resuelto en ${count} animales`);
+        onDone();
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : "Error al resolver el lote");
+      }
+      return;
+    }
     if (seleccionados.size === 0) {
       toast.error("Selecciona al menos un animal");
       return;
@@ -105,11 +162,25 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      {modoResolucion && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-50/40 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Resolviendo {alertasIds?.length ?? 0} alertas pendientes del lote.
+            Los animales del lote original están bloqueados para mantener la
+            consistencia.
+          </p>
+        </div>
+      )}
+
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-base">Animales activos *</Label>
+          <Label className="text-base">
+            {modoResolucion ? "Animales del lote" : "Animales activos *"}
+          </Label>
           <Badge variant="secondary">{seleccionados.size} seleccionados</Badge>
         </div>
+        {!modoResolucion && (
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -130,7 +201,9 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
             </Button>
           )}
         </div>
+        )}
         <div className="rounded-lg border border-border">
+          {!modoResolucion && (
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Checkbox
               id="todos-grupal"
@@ -141,6 +214,7 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
               Seleccionar todos los visibles ({lista.length})
             </Label>
           </div>
+          )}
           <ScrollArea className="h-56">
             <div className="divide-y divide-border">
               {loadingAnimales && (
@@ -158,11 +232,17 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
                   <label
                     key={a.id}
                     htmlFor={id}
-                    className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted/50"
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2",
+                      modoResolucion
+                        ? "cursor-not-allowed opacity-90"
+                        : "cursor-pointer hover:bg-muted/50",
+                    )}
                   >
                     <Checkbox
                       id={id}
                       checked={checked}
+                      disabled={modoResolucion}
                       onCheckedChange={() => toggle(a.id)}
                     />
                     <span className="text-sm font-medium">#{a.numero}</span>
@@ -301,8 +381,14 @@ export function FormControlSanitarioGrupal({ onDone }: Props) {
 
       <div className="flex justify-end gap-2 pt-2">
         <OfflineAwareSubmit
-          label={`Registrar en ${seleccionados.size || 0} animales`}
-          submitting={form.formState.isSubmitting || bulk.isPending}
+          label={
+            modoResolucion
+              ? `Resolver ${alertasIds?.length ?? 0} alertas`
+              : `Registrar en ${seleccionados.size || 0} animales`
+          }
+          submitting={
+            form.formState.isSubmitting || bulk.isPending || resolver.isPending
+          }
         />
       </div>
     </form>
