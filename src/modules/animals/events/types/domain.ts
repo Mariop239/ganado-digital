@@ -29,6 +29,7 @@ export type AnimalEvent<T extends AnimalEventType = AnimalEventType> = {
   payload: EventPayloadMap[T];
   observaciones: string | null;
   is_terminal: boolean;
+  batch_id: string | null;
   created_at: string;
   updated_at: string;
 };
