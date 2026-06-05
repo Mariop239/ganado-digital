@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedVacunasRouteImport } from './routes/_authenticated/vacunas'
+import { Route as AuthenticatedEventosGlobalesRouteImport } from './routes/_authenticated/eventos-globales'
 import { Route as AuthenticatedAnimalesIndexRouteImport } from './routes/_authenticated/animales.index'
 import { Route as AuthenticatedVacasNumeroRouteImport } from './routes/_authenticated/vacas.$numero'
 import { Route as AuthenticatedAnimalesNumeroRouteImport } from './routes/_authenticated/animales.$numero'
@@ -42,6 +43,12 @@ const AuthenticatedVacunasRoute = AuthenticatedVacunasRouteImport.update({
   path: '/vacunas',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedEventosGlobalesRoute =
+  AuthenticatedEventosGlobalesRouteImport.update({
+    id: '/eventos-globales',
+    path: '/eventos-globales',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAnimalesIndexRoute =
   AuthenticatedAnimalesIndexRouteImport.update({
     id: '/animales/',
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/eventos-globales': typeof AuthenticatedEventosGlobalesRoute
   '/vacunas': typeof AuthenticatedVacunasRoute
   '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
@@ -73,6 +81,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/eventos-globales': typeof AuthenticatedEventosGlobalesRoute
   '/vacunas': typeof AuthenticatedVacunasRoute
   '/': typeof AuthenticatedIndexRoute
   '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
@@ -84,6 +93,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/eventos-globales': typeof AuthenticatedEventosGlobalesRoute
   '/_authenticated/vacunas': typeof AuthenticatedVacunasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/eventos-globales'
     | '/vacunas'
     | '/animales/$numero'
     | '/vacas/$numero'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/signup'
+    | '/eventos-globales'
     | '/vacunas'
     | '/'
     | '/animales/$numero'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/signup'
+    | '/_authenticated/eventos-globales'
     | '/_authenticated/vacunas'
     | '/_authenticated/'
     | '/_authenticated/animales/$numero'
@@ -164,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVacunasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/eventos-globales': {
+      id: '/_authenticated/eventos-globales'
+      path: '/eventos-globales'
+      fullPath: '/eventos-globales'
+      preLoaderRoute: typeof AuthenticatedEventosGlobalesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/animales/': {
       id: '/_authenticated/animales/'
       path: '/animales'
@@ -189,6 +209,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedEventosGlobalesRoute: typeof AuthenticatedEventosGlobalesRoute
   AuthenticatedVacunasRoute: typeof AuthenticatedVacunasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedAnimalesNumeroRoute: typeof AuthenticatedAnimalesNumeroRoute
@@ -197,6 +218,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedEventosGlobalesRoute: AuthenticatedEventosGlobalesRoute,
   AuthenticatedVacunasRoute: AuthenticatedVacunasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedAnimalesNumeroRoute: AuthenticatedAnimalesNumeroRoute,
@@ -216,3 +238,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
