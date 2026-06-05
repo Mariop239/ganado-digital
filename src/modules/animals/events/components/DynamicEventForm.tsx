@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { z } from "zod";
 import { EVENT_REGISTRY } from "../registry";
-import { useCreateAnimalEvent } from "../hooks/useAnimalEvents";
+import { useCreateAnimalEvent, useCreateBulkEvent } from "../hooks/useAnimalEvents";
 import type { AnimalEventType } from "../types/domain";
 import { useAnimals } from "@/modules/animals/hooks/useAnimals";
 import { ComboboxFree } from "@/components/ui/combobox-free";
@@ -15,7 +15,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useMemo } from "react";
 
 type Props = {
-  animalId: string;
+  animalId?: string;
+  animalIds?: string[];
   tipo: AnimalEventType;
   onDone: () => void;
 };
@@ -62,7 +63,9 @@ function sanitizePayload(
   return clean;
 }
 
-export function DynamicEventForm({ animalId, tipo, onDone }: Props) {
+export function DynamicEventForm({ animalId, animalIds, tipo, onDone }: Props) {
+  const bulkMode = !!animalIds && animalIds.length > 0;
+  const bulkCount = animalIds?.length ?? 0;
   const def = EVENT_REGISTRY[tipo];
   const { data: animals } = useAnimals();
   const { ubicacionOptions, loteOptions } = useMemo(() => {
@@ -96,7 +99,8 @@ export function DynamicEventForm({ animalId, tipo, onDone }: Props) {
       payload: {} as Record<string, unknown>,
     },
   });
-  const create = useCreateAnimalEvent(animalId);
+  const create = useCreateAnimalEvent(animalId ?? "");
+  const createBulk = useCreateBulkEvent();
 
   const onSubmit = async (values: {
     fecha: string;
@@ -106,13 +110,26 @@ export function DynamicEventForm({ animalId, tipo, onDone }: Props) {
     try {
       const allowedKeys = def.fields.map((f) => f.name as string);
       const cleanPayload = sanitizePayload(values.payload ?? {}, allowedKeys);
-      await create.mutateAsync({
-        tipo: tipo as never,
-        fecha: values.fecha,
-        payload: cleanPayload as never,
-        observaciones: values.observaciones || null,
-      });
-      toast.success(`${def.label} registrado`);
+      if (bulkMode) {
+        await createBulk.mutateAsync({
+          animalIds: animalIds!,
+          input: {
+            tipo: tipo as never,
+            fecha: values.fecha,
+            payload: cleanPayload as never,
+            observaciones: values.observaciones || null,
+          },
+        });
+        toast.success(`${def.label} registrado en ${bulkCount} animales`);
+      } else {
+        await create.mutateAsync({
+          tipo: tipo as never,
+          fecha: values.fecha,
+          payload: cleanPayload as never,
+          observaciones: values.observaciones || null,
+        });
+        toast.success(`${def.label} registrado`);
+      }
       onDone();
     } catch (e: unknown) {
       console.error("[DynamicEventForm] save failed", e);
@@ -148,6 +165,12 @@ export function DynamicEventForm({ animalId, tipo, onDone }: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
       <p className="text-sm text-muted-foreground">{def.description}</p>
+      {bulkMode && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          Acción grupal: este evento se registrará para{" "}
+          <span className="font-semibold">{bulkCount}</span> animales seleccionados.
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="fecha" className="text-base">Fecha *</Label>
