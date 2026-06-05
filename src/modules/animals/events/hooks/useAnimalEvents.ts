@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createEvent,
+  createBulkEvents,
   deleteEvent,
+  listAllEvents,
   listEventsPorAnimal,
 } from "../repositories/events.repository";
 import type { AnimalEventInput } from "../types/domain";
@@ -67,6 +69,26 @@ export function useDeleteAnimalEvent(animalId: string) {
       qc.invalidateQueries({ queryKey: ["animal-events", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
+    },
+  });
+}
+
+export function useAllAnimalEvents() {
+  return useQuery({
+    queryKey: ["animal_events"],
+    queryFn: () => listAllEvents(),
+  });
+}
+
+export function useCreateBulkEvent() {
+  const qc = useQueryClient();
+  return useMutation<string, Error, { animalIds: string[]; input: AnimalEventInput }>({
+    mutationFn: ({ animalIds, input }) => createBulkEvents(animalIds, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["animal_events"] });
+      qc.invalidateQueries({ queryKey: ["animal-events"] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id"] });
     },
   });
 }
