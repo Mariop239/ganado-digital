@@ -17,6 +17,7 @@ export type Database = {
       animal_events: {
         Row: {
           animal_id: string | null
+          batch_id: string | null
           created_at: string
           fecha: string
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           animal_id?: string | null
+          batch_id?: string | null
           created_at?: string
           fecha: string
           id?: string
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           animal_id?: string | null
+          batch_id?: string | null
           created_at?: string
           fecha?: string
           id?: string
@@ -283,7 +286,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      registrar_evento_masivo: {
+        Args: {
+          p_animal_ids: string[]
+          p_fecha: string
+          p_observaciones?: string
+          p_payload: Json
+          p_tipo: Database["public"]["Enums"]["animal_event_type"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       animal_event_type:
