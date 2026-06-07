@@ -1,95 +1,52 @@
-# Sistema de lotes para registros sanitarios
 
-Agrupar los registros creados desde el formulario grupal bajo un mismo `batch_id`, y mostrarlos colapsados en la tabla global de Control Sanitario.
+# Fase A — Infraestructura de DB para Notificaciones Push
 
-## Fase A — Base de datos (migración)
+Alcance acotado a la **Fase A.1** del prompt maestro: crear la tabla `push_subscriptions` en Supabase con RLS y permisos. Las VAPID keys (A.2) y la Edge Function `send-push` (A.3) quedan fuera de este paso y se ejecutarán en prompts siguientes una vez la tabla esté aprobada.
 
-Añadir columna `batch_id uuid NULL` a `public.control_vacunas` + índice.
+## Qué se crea
 
-```sql
-ALTER TABLE public.control_vacunas ADD COLUMN batch_id uuid NULL;
-CREATE INDEX idx_control_vacunas_batch_id ON public.control_vacunas(batch_id);
-```
+Tabla `public.push_subscriptions` para almacenar las suscripciones Web Push de cada usuario (un usuario puede tener varias: móvil, escritorio, navegadores distintos).
 
-- Nullable: los registros individuales (creados desde `FormVacuna` o desde la acción rápida del Dashboard) siguen sin batch.
-- No se toca RLS (la columna hereda las políticas existentes scoped a `user_id`).
-- Sin backfill: los registros previos quedan como individuales (`batch_id = NULL`), que es lo correcto desde el dominio.
+### Columnas
 
-Tras aprobar la migración, se regenera `src/integrations/supabase/types.ts` automáticamente.
+- `id` — UUID, PK, default `gen_random_uuid()`
+- `user_id` — UUID, NOT NULL, FK a `auth.users(id) ON DELETE CASCADE`
+- `subscription` — JSONB, NOT NULL — objeto `PushSubscription` serializado del navegador (`endpoint`, `keys.p256dh`, `keys.auth`)
+- `endpoint` — TEXT, NOT NULL, **UNIQUE** — extraído desde `subscription->>'endpoint'`. Evita duplicar la misma suscripción si el usuario vuelve a permitir notificaciones en el mismo navegador (permite `upsert` por endpoint).
+- `user_agent` — TEXT, NULL — útil para que el usuario identifique sus dispositivos en una futura UI de gestión.
+- `created_at` — TIMESTAMPTZ, NOT NULL, default `now()`
+- `updated_at` — TIMESTAMPTZ, NOT NULL, default `now()` (con trigger usando `public.update_updated_at_column()` ya existente)
 
-## Fase B — Repositorio + hook de bulk
+### Índices
 
-**`src/modules/vaccinations/repositories/vacunas.repository.ts`**
-- `createVacunasBulk(animales, input)` genera un `batch_id = crypto.randomUUID()` y lo incluye en cada row del `insert`. Devuelve `{ count, batchId }` (en lugar de solo `count`) para que el caller pueda mostrar feedback o navegar.
-- `createVacuna` (individual) y `FormVacuna` NO asignan batch_id.
-- `listVacunasGlobal` ya hace `select("*")`, así que `batch_id` viene incluido sin cambios.
+- `idx_push_subscriptions_user_id` sobre `user_id` (lookup en `send-push` por usuario).
 
-**`src/modules/vaccinations/types/domain.ts`**
-- Añadir `batch_id: string | null` al tipo `Vacuna`.
+### Seguridad
 
-**`src/modules/vaccinations/hooks/useVacunas.ts`**
-- Ajustar la firma de `useCreateVacunasBulk` para devolver `{ count, batchId }`. La invalidación de `["dashboard"]`, `["vacunas"]` ya está en su sitio.
+- `ENABLE ROW LEVEL SECURITY`.
+- Políticas (todas scoped a `auth.uid() = user_id`, rol `authenticated`):
+  - SELECT propias
+  - INSERT propias (`WITH CHECK`)
+  - UPDATE propias
+  - DELETE propias
+- Grants:
+  - `GRANT SELECT, INSERT, UPDATE, DELETE ON public.push_subscriptions TO authenticated;`
+  - `GRANT ALL ON public.push_subscriptions TO service_role;` (la futura Edge Function `send-push` leerá con service role para enviar a todos los dispositivos del usuario sin depender del JWT del cliente).
+  - Sin grant a `anon`.
 
-## Fase C — UI agrupada en `/vacunas`
+## Lo que NO se hace en este paso
 
-Toda la lógica vive en `src/routes/_authenticated/vacunas.tsx`. No se toca el módulo `dashboard`, ni `FormControlSanitarioGrupal` (su contrato `onDone()` se mantiene).
-
-### Modelo de fila agrupada
-
-Derivado en memoria desde `data` (no requiere segunda query):
-
-```ts
-type GroupRow =
-  | { kind: "single"; vacuna: VacunaConVaca }
-  | {
-      kind: "batch";
-      batch_id: string;
-      fecha: string | null;
-      fecha_proxima_dosis: string | null;
-      tipo_tratamiento: TipoTratamiento;
-      estado_tratamiento: EstadoTratamiento;
-      vacuna_aplicada: string;
-      gasto_total: number;
-      animales_count: number;
-      items: VacunaConVaca[];
-    };
-```
-
-Reglas:
-- Recorrer `filtered`; agrupar por `batch_id` cuando no sea null.
-- Para cada lote: tomar campos comunes del primer item (fecha, producto, tipo, estado — son idénticos por construcción del bulk), sumar `gasto`, contar items.
-- Filtros existentes (`q`, `tipo`, `producto`) se aplican ANTES del agrupado: si un filtro de búsqueda matchea solo un animal del lote, el lote completo se muestra (el search por número/nombre de animal sigue funcionando porque al menos un item matchea).
-
-### Renderizado
-
-Reemplazar el `<TableBody>` actual por filas según `GroupRow`:
-
-- **Single** → fila idéntica a la actual.
-- **Batch** → fila con:
-  - Botón chevron (`ChevronRight` / `ChevronDown`) en una celda extra al inicio.
-  - Columna Animal: badge `Lote · N animales` + `vacuna_aplicada`.
-  - Resto de columnas: tipo, producto, estado, fecha, próxima, **gasto total** (suma).
-  - Al expandir: filas hijas (una por animal) renderizadas debajo con `<TableRow>` de fondo `bg-muted/30`, mostrando `#numero — nombre` y gasto individual. Estado de expansión local: `const [expanded, setExpanded] = useState<Set<string>>(new Set())` con key = `batch_id`.
-
-- Añadir un thead-column extra al principio (vacío) para alinear el chevron. Las filas single dejan esa celda vacía.
-
-KPIs actuales (`stats`): no se modifican — siguen contando registros individuales, que es lo correcto (un lote de 20 vacunas = 20 tratamientos aplicados).
-
-## Archivos a tocar
-
-- migración SQL (nueva)
-- `src/modules/vaccinations/types/domain.ts`
-- `src/modules/vaccinations/repositories/vacunas.repository.ts`
-- `src/modules/vaccinations/hooks/useVacunas.ts`
-- `src/routes/_authenticated/vacunas.tsx`
-
-## No se toca
-
-- `FormVacuna.tsx`, `FormControlSanitarioGrupal.tsx` (su contrato externo no cambia).
-- Dashboard / alertas sanitarias (los lotes se ven como N tratamientos individuales en alertas, que es correcto: cada animal tiene su próxima dosis propia).
-- Perfil del animal / `VacunasTablaVaca` (a nivel animal cada registro sigue siendo una fila — no tiene sentido agrupar dentro de un mismo animal).
+- No se generan ni guardan VAPID keys (Fase A.2 — siguiente prompt).
+- No se crea la Edge Function `send-push` (Fase A.3).
+- No se toca código del frontend, service worker, ni hooks de suscripción (Fase B).
+- No se modifica `control_vacunas` ni la lógica de alertas existente.
 
 ## Riesgos / decisiones explícitas
 
-- **Edición / borrado de un lote**: fuera de alcance de esta fase. El botón de eliminar (cuando exista) borrará registros individuales; un futuro prompt puede añadir "eliminar lote completo".
-- **Filtros vs agrupado**: si el usuario filtra por un animal específico y ese animal pertenece a un lote, se muestra el lote completo expandido (decisión: privilegiar contexto del lote). Se puede ajustar después si molesta.
+- **Endpoint UNIQUE**: decisión deliberada para soportar upsert idempotente desde el cliente (`onsubscriptionchange` del SW puede re-suscribir y reenviar). Si se prefiere permitir duplicados, se quita después; es más fácil aflojar que endurecer.
+- **CASCADE en `user_id`**: si se elimina el usuario en `auth.users`, sus suscripciones se borran automáticamente — coherente con el resto del esquema.
+- **service_role grant**: necesario porque la Edge Function envía pushes en nombre del usuario sin sesión activa. RLS sigue protegiendo el acceso desde el cliente.
+
+## Siguiente paso (tras aprobar esta migración)
+
+Confirmar y pasar a Fase A.2: generar par VAPID y registrar `VITE_APP_VAPID_PUBLIC_KEY` + secreto `VAPID_PRIVATE_KEY`.
