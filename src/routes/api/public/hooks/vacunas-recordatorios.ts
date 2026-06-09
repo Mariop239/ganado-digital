@@ -96,7 +96,7 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
               .from("scheduled_notifications")
               .insert({
                 user_id: row.user_id as string,
-                animal_id: row.animal_id,
+                animal_id: row.animal_id as string,
                 vacuna_id: row.id,
                 tipo_alerta: tipo,
                 fecha_objetivo: fechaObjetivo,
