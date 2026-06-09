@@ -18,6 +18,7 @@ import { Route as AuthenticatedEventosGlobalesRouteImport } from './routes/_auth
 import { Route as AuthenticatedAnimalesIndexRouteImport } from './routes/_authenticated/animales.index'
 import { Route as AuthenticatedVacasNumeroRouteImport } from './routes/_authenticated/vacas.$numero'
 import { Route as AuthenticatedAnimalesNumeroRouteImport } from './routes/_authenticated/animales.$numero'
+import { Route as ApiPublicHooksVacunasRecordatoriosRouteImport } from './routes/api/public/hooks/vacunas-recordatorios'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -67,6 +68,12 @@ const AuthenticatedAnimalesNumeroRoute =
     path: '/animales/$numero',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicHooksVacunasRecordatoriosRoute =
+  ApiPublicHooksVacunasRecordatoriosRouteImport.update({
+    id: '/api/public/hooks/vacunas-recordatorios',
+    path: '/api/public/hooks/vacunas-recordatorios',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -77,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
   '/animales/': typeof AuthenticatedAnimalesIndexRoute
+  '/api/public/hooks/vacunas-recordatorios': typeof ApiPublicHooksVacunasRecordatoriosRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -87,6 +95,7 @@ export interface FileRoutesByTo {
   '/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
   '/animales': typeof AuthenticatedAnimalesIndexRoute
+  '/api/public/hooks/vacunas-recordatorios': typeof ApiPublicHooksVacunasRecordatoriosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,6 +108,7 @@ export interface FileRoutesById {
   '/_authenticated/animales/$numero': typeof AuthenticatedAnimalesNumeroRoute
   '/_authenticated/vacas/$numero': typeof AuthenticatedVacasNumeroRoute
   '/_authenticated/animales/': typeof AuthenticatedAnimalesIndexRoute
+  '/api/public/hooks/vacunas-recordatorios': typeof ApiPublicHooksVacunasRecordatoriosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/animales/$numero'
     | '/vacas/$numero'
     | '/animales/'
+    | '/api/public/hooks/vacunas-recordatorios'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/animales/$numero'
     | '/vacas/$numero'
     | '/animales'
+    | '/api/public/hooks/vacunas-recordatorios'
   id:
     | '__root__'
     | '/_authenticated'
@@ -132,12 +144,14 @@ export interface FileRouteTypes {
     | '/_authenticated/animales/$numero'
     | '/_authenticated/vacas/$numero'
     | '/_authenticated/animales/'
+    | '/api/public/hooks/vacunas-recordatorios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicHooksVacunasRecordatoriosRoute: typeof ApiPublicHooksVacunasRecordatoriosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -205,6 +219,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnimalesNumeroRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/hooks/vacunas-recordatorios': {
+      id: '/api/public/hooks/vacunas-recordatorios'
+      path: '/api/public/hooks/vacunas-recordatorios'
+      fullPath: '/api/public/hooks/vacunas-recordatorios'
+      preLoaderRoute: typeof ApiPublicHooksVacunasRecordatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -234,17 +255,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiPublicHooksVacunasRecordatoriosRoute:
+    ApiPublicHooksVacunasRecordatoriosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
