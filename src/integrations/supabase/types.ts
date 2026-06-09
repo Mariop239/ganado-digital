@@ -311,6 +311,50 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_notifications: {
+        Row: {
+          animal_id: string
+          created_at: string
+          fecha_objetivo: string
+          id: string
+          sent_at: string
+          tipo_alerta: string
+          updated_at: string
+          user_id: string
+          vacuna_id: string
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          fecha_objetivo: string
+          id?: string
+          sent_at?: string
+          tipo_alerta: string
+          updated_at?: string
+          user_id: string
+          vacuna_id: string
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          fecha_objetivo?: string
+          id?: string
+          sent_at?: string
+          tipo_alerta?: string
+          updated_at?: string
+          user_id?: string
+          vacuna_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_notifications_vacuna_id_fkey"
+            columns: ["vacuna_id"]
+            isOneToOne: false
+            referencedRelation: "control_vacunas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
