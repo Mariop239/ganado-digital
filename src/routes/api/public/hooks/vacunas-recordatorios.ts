@@ -95,7 +95,7 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
             const { error: insErr } = await supabaseAdmin
               .from("scheduled_notifications")
               .insert({
-                user_id: row.user_id,
+                user_id: row.user_id as string,
                 animal_id: row.animal_id,
                 vacuna_id: row.id,
                 tipo_alerta: tipo,
