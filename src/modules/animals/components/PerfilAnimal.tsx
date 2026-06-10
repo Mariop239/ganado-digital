@@ -31,7 +31,7 @@ import type { AnimalView } from "../types/domain";
 import { CATEGORIA_LABELS, SEXO_LABELS, aplicaEstadoReproductivo } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import { HistorialTabla } from "@/modules/breeding";
-import { VacunasTablaVaca, PushNotificationsToggle } from "@/modules/vaccinations";
+import { VacunasTablaVaca } from "@/modules/vaccinations";
 import { EventTimeline, EventDialog } from "@/modules/animals/events";
 import { toast } from "sonner";
 
@@ -192,7 +192,6 @@ export function PerfilAnimal({ animal }: { animal: AnimalView }) {
           </TabsContent>
         )}
         <TabsContent value="vacunas" className="mt-4 space-y-4">
-          <PushNotificationsToggle />
           <VacunasTablaVaca animalId={animal.id} />
         </TabsContent>
         <TabsContent value="eventos" className="mt-4 space-y-4">
