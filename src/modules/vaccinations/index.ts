@@ -2,7 +2,6 @@ export { FormVacuna } from "./components/FormVacuna";
 export { VacunasTablaVaca } from "./components/VacunasTablaVaca";
 export { FormControlSanitarioGrupal } from "./components/FormControlSanitarioGrupal";
 export { VacunaDetailSheet } from "./components/VacunaDetailSheet";
-export { PushNotificationsToggle } from "./components/PushNotificationsToggle";
 export {
   useVacunasGlobal,
   useVacunasPorAnimal,
