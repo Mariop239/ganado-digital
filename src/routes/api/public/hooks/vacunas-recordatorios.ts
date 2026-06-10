@@ -67,15 +67,18 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
         for (const { offset, tipo } of OFFSETS) {
           const fechaObjetivo = ecuadorDate(offset);
 
-          // Excluye explícitamente las ya aplicadas (estado_tratamiento = 'aplicado')
-          // para que el sistema deje de enviar recordatorios pendientes.
+          // Importante (Principio #10 — eventos como historial):
+          // No filtramos por estado_tratamiento. Una vacuna "aplicada" puede
+          // tener una `fecha_proxima_dosis` programada para el siguiente ciclo;
+          // esos recordatorios también deben dispararse. La unicidad por
+          // (vacuna_id, tipo_alerta, fecha_objetivo) en scheduled_notifications
+          // garantiza idempotencia para cada ciclo.
           const { data: rows, error } = await supabaseAdmin
             .from("control_vacunas")
             .select(
               "id, animal_id, user_id, vacuna_aplicada, fecha_proxima_dosis, estado_tratamiento, animals!inner(numero, nombre, estado_actual)",
             )
             .eq("fecha_proxima_dosis", fechaObjetivo)
-            .neq("estado_tratamiento", "aplicado")
             .not("user_id", "is", null)
             .eq("animals.estado_actual", "activa");
 
