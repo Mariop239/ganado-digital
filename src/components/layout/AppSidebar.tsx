@@ -1,9 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Beef, Syringe, ClipboardList } from "lucide-react";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
+  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
+  SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
+import { PushNotificationsSidebarItem } from "@/modules/notifications";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -49,6 +51,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="px-2 py-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <PushNotificationsSidebarItem />
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

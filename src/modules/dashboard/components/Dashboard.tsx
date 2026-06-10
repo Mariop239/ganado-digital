@@ -46,6 +46,7 @@ import {
   useAlertasSanitariasGlobales,
 } from "@/modules/vaccinations";
 import type { AlertaSanitaria, TipoTratamiento } from "@/modules/vaccinations";
+import { PushNotificationsBanner } from "@/modules/notifications";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -118,6 +119,8 @@ export function Dashboard() {
           Resumen general del rancho y accesos rápidos.
         </p>
       </header>
+
+      <PushNotificationsBanner />
 
       {/* KPIs */}
       <section
