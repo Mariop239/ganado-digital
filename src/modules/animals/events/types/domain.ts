@@ -21,6 +21,8 @@ export type EventPayloadMap = {
   otro: OtroPayload;
 };
 
+export type AnimalEventEstado = "hecho" | "programado";
+
 export type AnimalEvent<T extends AnimalEventType = AnimalEventType> = {
   id: string;
   animal_id: string | null;
@@ -30,6 +32,8 @@ export type AnimalEvent<T extends AnimalEventType = AnimalEventType> = {
   observaciones: string | null;
   is_terminal: boolean;
   batch_id: string | null;
+  estado: AnimalEventEstado;
+  fecha_ejecucion: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -39,4 +43,8 @@ export type AnimalEventInput<T extends AnimalEventType = AnimalEventType> = {
   fecha: string;
   payload: EventPayloadMap[T];
   observaciones?: string | null;
+  /** Default 'hecho'. Si es 'programado' se requiere `fecha_ejecucion`. */
+  estado?: AnimalEventEstado;
+  /** Fecha futura (>= hoy) en que se ejecutará el evento programado. */
+  fecha_ejecucion?: string | null;
 };
