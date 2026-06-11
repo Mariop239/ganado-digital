@@ -7,7 +7,6 @@ import {
   Baby,
   HeartPulse,
   ArrowDownRight,
-  Layers,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,14 +18,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useAnimals } from "../hooks/useAnimals";
 import { FormAnimal } from "./FormAnimal";
 import { CATEGORIA_LABELS, SEXO_LABELS } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import type { Sexo, Categoria, AnimalView } from "../types/domain";
-import { EventDialog } from "@/modules/animals/events";
 
 type KpiKey = "activos" | "gestantes" | "crianza" | "egresados";
 
@@ -85,8 +82,6 @@ export function ListaAnimales() {
   const [dueno, setDueno] = useState<string>("todos");
   const [causa, setCausa] = useState<"todas" | "vendida" | "fallecida">("todas");
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkOpen, setBulkOpen] = useState(false);
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
   // (incluido "Egresados") reflejen la realidad completa del rancho.
   const { data, isLoading } = useAnimals({
@@ -172,18 +167,6 @@ export function ListaAnimales() {
   }, [contextScoped, q, categoria, kpi]);
 
   const totalKpi = counts[kpi] ?? 0;
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const clearSelection = () => setSelected(new Set());
-  const selectAllVisible = () => setSelected(new Set(filtered.map((a) => a.id)));
-  const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
   return (
     <div className="space-y-5">
