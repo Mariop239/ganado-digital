@@ -7,7 +7,6 @@ import {
   Baby,
   HeartPulse,
   ArrowDownRight,
-  Layers,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,14 +18,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useAnimals } from "../hooks/useAnimals";
 import { FormAnimal } from "./FormAnimal";
 import { CATEGORIA_LABELS, SEXO_LABELS } from "../constants/categorias";
 import { ESTADO_ACTUAL_LABELS, ESTADO_REPRODUCTIVO_LABELS } from "../constants/estados";
 import type { Sexo, Categoria, AnimalView } from "../types/domain";
-import { EventDialog } from "@/modules/animals/events";
 
 type KpiKey = "activos" | "gestantes" | "crianza" | "egresados";
 
@@ -85,8 +82,6 @@ export function ListaAnimales() {
   const [dueno, setDueno] = useState<string>("todos");
   const [causa, setCausa] = useState<"todas" | "vendida" | "fallecida">("todas");
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkOpen, setBulkOpen] = useState(false);
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
   // (incluido "Egresados") reflejen la realidad completa del rancho.
   const { data, isLoading } = useAnimals({
@@ -172,18 +167,6 @@ export function ListaAnimales() {
   }, [contextScoped, q, categoria, kpi]);
 
   const totalKpi = counts[kpi] ?? 0;
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const clearSelection = () => setSelected(new Set());
-  const selectAllVisible = () => setSelected(new Set(filtered.map((a) => a.id)));
-  const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
   return (
     <div className="space-y-5">
@@ -375,46 +358,23 @@ export function ListaAnimales() {
             Mostrando <span className="font-medium text-foreground">{filtered.length}</span> animales de{" "}
             <span className="font-medium text-foreground">{totalKpi}</span> en total
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={selected.size === filtered.length ? clearSelection : selectAllVisible}
-            >
-              {selected.size === filtered.length ? "Limpiar selección" : "Seleccionar todos"}
-            </Button>
-            {selected.size > 0 && (
-              <span className="text-sm text-muted-foreground">
-                {selected.size} seleccionados
-              </span>
-            )}
-          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((a) => {
-            const isSel = selected.has(a.id);
             return (
               <Card
                 key={a.id}
                 className={cn(
-                  "relative h-full transition-colors hover:bg-secondary/50",
-                  isSel && "ring-2 ring-primary",
+                  "h-full transition-colors hover:bg-secondary/50",
                 )}
               >
-                <div className="absolute left-3 top-3 z-10" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={isSel}
-                    onCheckedChange={() => toggleSelect(a.id)}
-                    aria-label={`Seleccionar ${a.numero}`}
-                  />
-                </div>
                 <Link
                   to="/animales/$numero"
                   params={{ numero: a.numero }}
                   search={a.estado_actual !== "activa" ? { id: a.id } : {}}
                   className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
                 >
-                  <CardContent className="space-y-1 p-4 pl-10">
+                  <CardContent className="space-y-1 p-4">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-lg font-semibold text-foreground">#{a.numero}</span>
                       <div className="flex flex-wrap items-center gap-1">
@@ -443,32 +403,6 @@ export function ListaAnimales() {
         </div>
         </>
       )}
-
-      {selected.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-full border bg-card shadow-lg">
-          <div className="flex items-center gap-2 px-4 py-2">
-            <span className="text-sm font-medium">
-              {selected.size} animal{selected.size === 1 ? "" : "es"} seleccionado{selected.size === 1 ? "" : "s"}
-            </span>
-            <Button size="sm" variant="ghost" onClick={clearSelection}>
-              Limpiar
-            </Button>
-            <Button size="sm" onClick={() => setBulkOpen(true)}>
-              <Layers className="mr-2 h-4 w-4" /> Acción Grupal
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <EventDialog
-        animalIds={selectedIds}
-        open={bulkOpen}
-        onOpenChange={(v) => {
-          setBulkOpen(v);
-          if (!v) clearSelection();
-        }}
-        hideTrigger
-      />
     </div>
   );
 }
