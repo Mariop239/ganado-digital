@@ -19,7 +19,9 @@ export type Database = {
           animal_id: string | null
           batch_id: string | null
           created_at: string
+          estado: string
           fecha: string
+          fecha_ejecucion: string | null
           id: string
           is_terminal: boolean
           observaciones: string | null
@@ -32,7 +34,9 @@ export type Database = {
           animal_id?: string | null
           batch_id?: string | null
           created_at?: string
+          estado?: string
           fecha: string
+          fecha_ejecucion?: string | null
           id?: string
           is_terminal?: boolean
           observaciones?: string | null
@@ -45,7 +49,9 @@ export type Database = {
           animal_id?: string | null
           batch_id?: string | null
           created_at?: string
+          estado?: string
           fecha?: string
+          fecha_ejecucion?: string | null
           id?: string
           is_terminal?: boolean
           observaciones?: string | null
@@ -360,16 +366,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      registrar_evento_masivo: {
-        Args: {
-          p_animal_ids: string[]
-          p_fecha: string
-          p_observaciones?: string
-          p_payload: Json
-          p_tipo: Database["public"]["Enums"]["animal_event_type"]
-        }
-        Returns: string
-      }
+      registrar_evento_masivo:
+        | {
+            Args: {
+              p_animal_ids: string[]
+              p_fecha: string
+              p_observaciones?: string
+              p_payload: Json
+              p_tipo: Database["public"]["Enums"]["animal_event_type"]
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_animal_ids: string[]
+              p_estado?: string
+              p_fecha: string
+              p_fecha_ejecucion?: string
+              p_observaciones?: string
+              p_payload: Json
+              p_tipo: Database["public"]["Enums"]["animal_event_type"]
+            }
+            Returns: string
+          }
     }
     Enums: {
       animal_event_type:

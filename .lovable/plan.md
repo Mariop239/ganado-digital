@@ -1,52 +1,91 @@
 
-# Fase A — Infraestructura de DB para Notificaciones Push
+# Fase A — Eventos programados en `animal_events` (v2 con correcciones)
 
-Alcance acotado a la **Fase A.1** del prompt maestro: crear la tabla `push_subscriptions` en Supabase con RLS y permisos. Las VAPID keys (A.2) y la Edge Function `send-push` (A.3) quedan fuera de este paso y se ejecutarán en prompts siguientes una vez la tabla esté aprobada.
+Objetivo: permitir registrar un evento como **programado** para fecha futura, sin tocar `animals` ni `historial`, y dejando la RPC de eventos masivos lista para programación grupal.
 
-## Qué se crea
+## 1. Migración SQL
 
-Tabla `public.push_subscriptions` para almacenar las suscripciones Web Push de cada usuario (un usuario puede tener varias: móvil, escritorio, navegadores distintos).
+Una sola migración sobre `public.animal_events` + funciones relacionadas.
 
-### Columnas
+### 1.1 Esquema
 
-- `id` — UUID, PK, default `gen_random_uuid()`
-- `user_id` — UUID, NOT NULL, FK a `auth.users(id) ON DELETE CASCADE`
-- `subscription` — JSONB, NOT NULL — objeto `PushSubscription` serializado del navegador (`endpoint`, `keys.p256dh`, `keys.auth`)
-- `endpoint` — TEXT, NOT NULL, **UNIQUE** — extraído desde `subscription->>'endpoint'`. Evita duplicar la misma suscripción si el usuario vuelve a permitir notificaciones en el mismo navegador (permite `upsert` por endpoint).
-- `user_agent` — TEXT, NULL — útil para que el usuario identifique sus dispositivos en una futura UI de gestión.
-- `created_at` — TIMESTAMPTZ, NOT NULL, default `now()`
-- `updated_at` — TIMESTAMPTZ, NOT NULL, default `now()` (con trigger usando `public.update_updated_at_column()` ya existente)
+- `ALTER TABLE public.animal_events ADD COLUMN estado text NOT NULL DEFAULT 'hecho';`
+- `ALTER TABLE public.animal_events ADD COLUMN fecha_ejecucion date;`
+- `ALTER TABLE public.animal_events ADD CONSTRAINT animal_events_estado_check CHECK (estado IN ('hecho','programado'));`
+- `CREATE INDEX animal_events_programados_idx ON public.animal_events (fecha_ejecucion) WHERE estado = 'programado';`
 
-### Índices
+RLS: **no se tocan políticas** (las 4 actuales siguen cubriendo las nuevas columnas).
 
-- `idx_push_subscriptions_user_id` sobre `user_id` (lookup en `send-push` por usuario).
+### 1.2 Trigger `validar_animal_event` (corrección #1 incorporada)
 
-### Seguridad
+Se **mantiene** la regla actual: `fecha` no puede ser futura, nunca. La fecha programada vive en `fecha_ejecucion`, no en `fecha`.
 
-- `ENABLE ROW LEVEL SECURITY`.
-- Políticas (todas scoped a `auth.uid() = user_id`, rol `authenticated`):
-  - SELECT propias
-  - INSERT propias (`WITH CHECK`)
-  - UPDATE propias
-  - DELETE propias
-- Grants:
-  - `GRANT SELECT, INSERT, UPDATE, DELETE ON public.push_subscriptions TO authenticated;`
-  - `GRANT ALL ON public.push_subscriptions TO service_role;` (la futura Edge Function `send-push` leerá con service role para enviar a todos los dispositivos del usuario sin depender del JWT del cliente).
-  - Sin grant a `anon`.
+Reglas nuevas que añade el trigger:
 
-## Lo que NO se hace en este paso
+- Si `NEW.estado = 'programado'`:
+  - `NEW.fecha_ejecucion IS NOT NULL` (si no, RAISE EXCEPTION `'Un evento programado requiere fecha_ejecucion'`).
+  - `NEW.fecha_ejecucion >= CURRENT_DATE` (si no, RAISE EXCEPTION `'fecha_ejecucion no puede ser pasada'`).
+  - `NEW.is_terminal := false` (siempre, sobreescribe el cálculo por tipo — un evento programado nunca cierra al animal).
+- Si `NEW.estado = 'hecho'`:
+  - `NEW.fecha_ejecucion := NULL` (se ignora si llega valor — evita estados ambiguos).
+  - El cálculo de `is_terminal` por `CASE NEW.tipo` se mantiene tal cual.
+- La validación `fecha > CURRENT_DATE → RAISE` se mantiene intacta para ambos estados.
+- Validaciones de payload por tipo (`venta` requiere comprador/valor, etc.) se mantienen idénticas.
 
-- No se generan ni guardan VAPID keys (Fase A.2 — siguiente prompt).
-- No se crea la Edge Function `send-push` (Fase A.3).
-- No se toca código del frontend, service worker, ni hooks de suscripción (Fase B).
-- No se modifica `control_vacunas` ni la lógica de alertas existente.
+### 1.3 RPC `registrar_evento_masivo` (corrección #2 incorporada)
 
-## Riesgos / decisiones explícitas
+Importante: la RPC actual recibe **un solo evento aplicado a N animales**, no un array `p_eventos`. Para no romper su contrato ni inventar parámetros nuevos a destiempo, la actualización mínima y coherente es:
 
-- **Endpoint UNIQUE**: decisión deliberada para soportar upsert idempotente desde el cliente (`onsubscriptionchange` del SW puede re-suscribir y reenviar). Si se prefiere permitir duplicados, se quita después; es más fácil aflojar que endurecer.
-- **CASCADE en `user_id`**: si se elimina el usuario en `auth.users`, sus suscripciones se borran automáticamente — coherente con el resto del esquema.
-- **service_role grant**: necesario porque la Edge Function envía pushes en nombre del usuario sin sesión activa. RLS sigue protegiendo el acceso desde el cliente.
+- Añadir dos parámetros opcionales con default seguro:
+  - `p_estado text DEFAULT 'hecho'`
+  - `p_fecha_ejecucion date DEFAULT NULL`
+- Validar dentro de la RPC:
+  - Si `p_estado = 'programado'` → exigir `p_fecha_ejecucion IS NOT NULL` y `>= CURRENT_DATE`.
+  - Si `p_estado = 'hecho'` → forzar `p_fecha_ejecucion := NULL`.
+- `INSERT INTO animal_events (...)` incluye las dos columnas nuevas.
+- Cuando `p_estado = 'programado'`, los `UPDATE` sobre `animals` (traslado/venta/fallecimiento) **no se ejecutan** — el efecto se aplicará cuando el evento transicione a `hecho` (Fase C). Esto preserva Principio #3 (estado del animal no se altera por algo que aún no ocurrió).
+- Firma actualizada en `Functions.registrar_evento_masivo.Args` se regenera sola al aprobar la migración.
 
-## Siguiente paso (tras aprobar esta migración)
+> Nota al asesor: si en una Fase B+ el grupal necesita N eventos heterogéneos en una sola llamada (`p_eventos jsonb[]`), se agrega una RPC nueva (`registrar_eventos_masivo_v2`) sin romper la actual. Hoy con `p_estado` + `p_fecha_ejecucion` ya queda habilitada la **programación grupal** que el asesor pidió: registrar un mismo evento programado para N animales.
 
-Confirmar y pasar a Fase A.2: generar par VAPID y registrar `VITE_APP_VAPID_PUBLIC_KEY` + secreto `VAPID_PRIVATE_KEY`.
+### 1.4 Reversibilidad
+
+DROP CONSTRAINT / INDEX / COLUMN + restaurar cuerpos previos de `validar_animal_event` y `registrar_evento_masivo`. Las 4 políticas RLS y los grants existentes quedan intactos.
+
+## 2. Tipos (`src/modules/animals/events/types/domain.ts`)
+
+```ts
+export type AnimalEventEstado = "hecho" | "programado";
+
+export type AnimalEvent<T extends AnimalEventType = AnimalEventType> = {
+  // …campos actuales (id, animal_id, tipo, fecha, payload, observaciones,
+  // is_terminal, batch_id, created_at, updated_at)
+  estado: AnimalEventEstado;
+  fecha_ejecucion: string | null;
+};
+
+export type AnimalEventInput<T extends AnimalEventType = AnimalEventType> = {
+  tipo: T;
+  fecha: string;                          // día de registro (no futuro)
+  payload: EventPayloadMap[T];
+  observaciones?: string | null;
+  estado?: AnimalEventEstado;             // default 'hecho'
+  fecha_ejecucion?: string | null;        // requerido si estado === 'programado'
+};
+```
+
+`src/integrations/supabase/types.ts` se regenera tras aprobar la migración — no se edita a mano.
+
+## 3. Lo que **no** entra en esta fase (Principios #6 y #7)
+
+- UI para crear eventos programados (Fase B, próximo prompt): `DynamicEventForm` y `EventDialog` siguen registrando solo `estado='hecho'`. El `refine(fecha ≤ hoy)` del formulario se mantiene.
+- Hook `useCreateAnimalEvent`: cuando se habilite la creación de `programado`, deberá **no** llamar a `updateUbicacionLote` / `aplicarEgresoSinEvento` mientras `estado !== 'hecho'`. Documentado para Fase B.
+- Vista de "Eventos programados" y job de transición `programado → hecho` al llegar `fecha_ejecucion`: Fase C.
+
+## 4. Riesgos
+
+- Filas existentes quedan con `estado='hecho'`, `fecha_ejecucion=NULL` — correcto, sin migración de datos.
+- Cualquier `select('*')` ya tipado recibe dos campos extra opcionales — sin impacto en runtime.
+- La RPC, al sumar dos parámetros con default, mantiene compatibilidad con todos los call-sites actuales (`useCreateBulkEvent` no cambia).
+
+¿Procedo a build con esta versión v2?
