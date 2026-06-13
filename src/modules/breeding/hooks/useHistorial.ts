@@ -6,6 +6,8 @@ import {
   updateServicio,
   marcarParida,
   type MarcarParidaInput,
+  createBulkServicios,
+  type BulkServicioInput,
 } from "../repositories/historial.repository";
 import type { ServicioInput } from "../types/domain";
 
@@ -64,6 +66,19 @@ export function useMarcarParida(animalId: string) {
       qc.invalidateQueries({ queryKey: ["historial", animalId] });
       qc.invalidateQueries({ queryKey: ["animal-by-id", animalId] });
       qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useCreateBulkServicio() {
+  const qc = useQueryClient();
+  return useMutation<number, Error, { animalIds: string[]; input: BulkServicioInput }>({
+    mutationFn: ({ animalIds, input }) => createBulkServicios(animalIds, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["historial"] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });

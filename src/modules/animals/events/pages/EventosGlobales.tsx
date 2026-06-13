@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EVENT_REGISTRY } from "../registry";
 import { useAllAnimalEvents } from "../hooks/useAnimalEvents";
 import { useAnimals } from "@/modules/animals/hooks/useAnimals";
+import { DialogoEventoGrupal } from "../components/DialogoEventoGrupal";
 import type { AnimalEvent, AnimalEventType, EventPayloadMap } from "../types/domain";
 
 function summarize<T extends AnimalEventType>(ev: AnimalEvent<T>): string {
@@ -86,11 +87,14 @@ export function EventosGlobales() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">Historial Global</h1>
-        <p className="text-sm text-muted-foreground">
-          Todos los eventos operacionales del rancho, agrupados por lote cuando aplica.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">Historial Global</h1>
+          <p className="text-sm text-muted-foreground">
+            Todos los eventos operacionales del rancho, agrupados por lote cuando aplica.
+          </p>
+        </div>
+        <DialogoEventoGrupal />
       </div>
 
       {isLoading ? (

@@ -1,6 +1,7 @@
 export { EventTimeline } from "./components/EventTimeline";
 export { EventDialog } from "./components/EventDialog";
 export { DynamicEventForm } from "./components/DynamicEventForm";
+export { DialogoEventoGrupal } from "./components/DialogoEventoGrupal";
 export { EventosGlobales } from "./pages/EventosGlobales";
 export {
   useAnimalEvents,
