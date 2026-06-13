@@ -63,6 +63,8 @@ export async function createBulkEvents<T extends AnimalEventType>(
     p_fecha: input.fecha,
     p_payload: (input.payload ?? {}) as EventPayloadMap[T],
     p_observaciones: input.observaciones ?? null,
+    p_estado: input.estado ?? "hecho",
+    p_fecha_ejecucion: input.fecha_ejecucion ?? null,
   });
   if (error) throw error;
   return data as string;
