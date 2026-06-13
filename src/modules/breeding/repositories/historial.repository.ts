@@ -114,3 +114,37 @@ export async function deleteHistorial(id: string): Promise<void> {
   const { error } = await supabase.from("historial").delete().eq("id", id);
   if (error) throw error;
 }
+
+export type BulkServicioInput = {
+  tipo_servicio: "monta_natural" | "inseminacion";
+  toro: string;
+  fecha_monta: string;
+  fecha_palpado?: string | null;
+  observaciones?: string | null;
+};
+
+/**
+ * Crea un servicio reproductivo para múltiples animales en estado 'pendiente'.
+ * No actualiza estado_reproductivo del animal (queda 'pendiente' hasta confirmación).
+ */
+export async function createBulkServicios(
+  animalIds: string[],
+  input: BulkServicioInput,
+): Promise<number> {
+  if (!animalIds.length) return 0;
+  const rows = animalIds.map((animal_id) => ({
+    animal_id,
+    tipo_servicio: input.tipo_servicio,
+    toro: input.toro ?? "",
+    fecha_monta: input.fecha_monta,
+    estado_servicio: "pendiente" as const,
+    fecha_probable_parto: addDays(input.fecha_monta, 283),
+    fecha_confirmacion: null,
+    fecha_palpado:
+      input.tipo_servicio === "inseminacion" ? input.fecha_palpado ?? null : null,
+    observaciones: input.observaciones || null,
+  }));
+  const { error } = await supabase.from("historial").insert(rows);
+  if (error) throw error;
+  return rows.length;
+}
