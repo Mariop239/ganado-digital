@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Layers, X } from "lucide-react";
+import { Layers, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,15 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ComboboxFree } from "@/components/ui/combobox-free";
 import { cn } from "@/lib/utils";
@@ -64,93 +57,186 @@ function MultiAnimalSelector({
   value: string[];
   onChange: (v: string[]) => void;
 }) {
-  const { data: animals = [] } = useAnimals();
-  const activos = useMemo(
-    () => animals.filter((a) => a.estado_actual === "activa"),
-    [animals],
-  );
-  const [open, setOpen] = useState(false);
-  const selected = new Set(value);
+  const { data: animals = [], isLoading } = useAnimals({ estado_actual: "activa" });
+  const [q, setQ] = useState("");
+  const [loteFiltro, setLoteFiltro] = useState<string>("todos");
+  const selected = useMemo(() => new Set(value), [value]);
+
+  const lotesDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of animals) {
+      if (a.lote_actual?.trim()) set.add(a.lote_actual.trim());
+    }
+    return Array.from(set).sort();
+  }, [animals]);
+
+  const lista = useMemo(() => {
+    let rows = animals;
+    if (loteFiltro !== "todos") {
+      rows = rows.filter((a) => a.lote_actual === loteFiltro);
+    }
+    if (q.trim()) {
+      const s = q.toLowerCase();
+      rows = rows.filter((a) =>
+        [a.numero, a.nombre]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(s)),
+      );
+    }
+    return rows;
+  }, [animals, q, loteFiltro]);
 
   const toggle = (id: string) => {
     if (selected.has(id)) onChange(value.filter((v) => v !== id));
     else onChange([...value, id]);
   };
 
+  const toggleVisibles = (checked: boolean) => {
+    if (!checked) {
+      const visibles = new Set(lista.map((a) => a.id));
+      onChange(value.filter((v) => !visibles.has(v)));
+      return;
+    }
+    const next = new Set(value);
+    for (const a of lista) next.add(a.id);
+    onChange(Array.from(next));
+  };
+
+  const seleccionarPorLote = (lote: string) => {
+    setLoteFiltro(lote);
+    if (lote !== "todos") {
+      const ids = animals.filter((a) => a.lote_actual === lote).map((a) => a.id);
+      const next = new Set(value);
+      ids.forEach((id) => next.add(id));
+      onChange(Array.from(next));
+      toast.info(`Lote "${lote}" añadido (${ids.length} animales)`);
+    }
+  };
+
+  const todosVisibles = lista.length > 0 && lista.every((a) => selected.has(a.id));
+
   return (
-    <div className="space-y-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "min-h-12 w-full justify-between text-base font-normal",
-              value.length === 0 && "text-muted-foreground",
-            )}
-          >
-            <span className="truncate">
-              {value.length === 0
-                ? "Seleccionar animales…"
-                : `${value.length} animal${value.length === 1 ? "" : "es"} seleccionado${value.length === 1 ? "" : "s"}`}
-            </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Buscar por número o nombre…" />
-            <CommandList>
-              <CommandEmpty>Sin resultados.</CommandEmpty>
-              <CommandGroup>
-                {activos.map((a) => {
-                  const isSel = selected.has(a.id);
-                  return (
-                    <CommandItem
-                      key={a.id}
-                      value={`${a.numero} ${a.nombre ?? ""}`}
-                      onSelect={() => toggle(a.id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          isSel ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                      #{a.numero}
-                      {a.nombre ? ` · ${a.nombre}` : ""}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {value.map((id) => {
-            const a = activos.find((x) => x.id === id);
-            if (!a) return null;
-            return (
-              <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                #{a.numero}
-                {a.nombre ? ` · ${a.nombre}` : ""}
-                <button
-                  type="button"
-                  onClick={() => toggle(id)}
-                  className="rounded-sm p-0.5 hover:bg-muted-foreground/20"
-                  aria-label={`Quitar ${a.numero}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            );
-          })}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
+          Solo animales activos
+        </span>
+        <Badge variant="secondary" className="h-6">
+          {value.length} seleccionado{value.length === 1 ? "" : "s"}
+        </Badge>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por número o nombre…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-11 pl-9"
+          />
+          {q && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+              onClick={() => setQ("")}
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-      )}
+
+        <div className="relative">
+          <Layers className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Select value={loteFiltro} onValueChange={seleccionarPorLote}>
+            <SelectTrigger className="h-11 pl-9">
+              <SelectValue placeholder="Seleccionar por lote" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los animales</SelectItem>
+              {lotesDisponibles.map((lote) => (
+                <SelectItem key={lote} value={lote}>
+                  Lote: {lote}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
+          <Checkbox
+            id="todos-evento-grupal"
+            checked={todosVisibles}
+            onCheckedChange={(c) => toggleVisibles(c === true)}
+          />
+          <Label
+            htmlFor="todos-evento-grupal"
+            className="cursor-pointer text-sm font-medium"
+          >
+            {loteFiltro === "todos"
+              ? `Seleccionar todos (${lista.length})`
+              : `Seleccionar lote "${loteFiltro}" (${lista.length})`}
+          </Label>
+        </div>
+        <ScrollArea className="h-56">
+          <div className="divide-y divide-border">
+            {isLoading && (
+              <div className="px-3 py-4 text-sm text-muted-foreground">
+                Cargando animales…
+              </div>
+            )}
+            {!isLoading && lista.length === 0 && (
+              <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                No se encontraron animales activos
+                {loteFiltro !== "todos" ? ` en el lote "${loteFiltro}"` : ""}.
+              </div>
+            )}
+            {lista.map((a) => {
+              const id = `evt-anim-${a.id}`;
+              const checked = selected.has(a.id);
+              return (
+                <label
+                  key={a.id}
+                  htmlFor={id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50",
+                    checked && "bg-primary/5",
+                  )}
+                >
+                  <Checkbox
+                    id={id}
+                    checked={checked}
+                    onCheckedChange={() => toggle(a.id)}
+                  />
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-sm font-semibold text-foreground">
+                      #{a.numero}
+                    </span>
+                    {a.nombre && (
+                      <span className="text-xs text-muted-foreground">
+                        {a.nombre}
+                      </span>
+                    )}
+                  </div>
+                  {a.lote_actual && loteFiltro === "todos" && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-normal px-1.5 h-5"
+                    >
+                      {a.lote_actual}
+                    </Badge>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 }
