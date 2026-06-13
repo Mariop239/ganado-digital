@@ -400,7 +400,7 @@ export function DialogoEventoGrupal() {
           Registrar Evento Grupal
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Evento Grupal</DialogTitle>
         </DialogHeader>
