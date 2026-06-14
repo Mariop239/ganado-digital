@@ -5,6 +5,8 @@ import {
   deleteEvent,
   listAllEvents,
   listEventsPorAnimal,
+  listProgramadosEvents,
+  marcarEventoHecho,
 } from "../repositories/events.repository";
 import type { AnimalEventInput } from "../types/domain";
 import {
@@ -89,6 +91,26 @@ export function useCreateBulkEvent() {
       qc.invalidateQueries({ queryKey: ["animal_events"] });
       qc.invalidateQueries({ queryKey: ["animal-events"] });
       qc.invalidateQueries({ queryKey: ["animal-by-id"] });
+    },
+  });
+}
+
+export function useProgramadosEvents() {
+  return useQuery({
+    queryKey: ["animal_events", "programados"],
+    queryFn: () => listProgramadosEvents(),
+  });
+}
+
+export function useMarcarEventoHecho() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => marcarEventoHecho(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["animal_events"] });
+      qc.invalidateQueries({ queryKey: ["animal-events"] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id"] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
     },
   });
 }
