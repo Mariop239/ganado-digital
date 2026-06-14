@@ -7,6 +7,9 @@ import {
   Baby,
   HeartPulse,
   ArrowDownRight,
+  ArrowUpDown,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,6 +85,7 @@ export function ListaAnimales() {
   const [dueno, setDueno] = useState<string>("todos");
   const [causa, setCausa] = useState<"todas" | "vendida" | "fallecida">("todas");
   const [open, setOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"default" | "asc" | "desc">("default");
   // Traemos TODO el catálogo y filtramos en cliente para que los KPIs
   // (incluido "Egresados") reflejen la realidad completa del rancho.
   const { data, isLoading } = useAnimals({
@@ -158,13 +162,29 @@ export function ListaAnimales() {
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const kpiDef = KPIS.find((k) => k.key === kpi)!;
-    return contextScoped.filter((a) => {
+    const base = contextScoped.filter((a) => {
       if (!kpiDef.match(a)) return false;
       if (categoria !== "todas" && a.categoria_view !== categoria) return false;
       if (!term) return true;
       return a.numero.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term);
     });
-  }, [contextScoped, q, categoria, kpi]);
+    if (sortOrder === "default") return base;
+    const sorted = [...base].sort((a, b) =>
+      a.numero.localeCompare(b.numero, "es", { numeric: true, sensitivity: "base" }),
+    );
+    return sortOrder === "asc" ? sorted : sorted.reverse();
+  }, [contextScoped, q, categoria, kpi, sortOrder]);
+
+  const cycleSort = () =>
+    setSortOrder((s) => (s === "default" ? "asc" : s === "asc" ? "desc" : "default"));
+  const SortIcon =
+    sortOrder === "asc" ? ArrowUpNarrowWide : sortOrder === "desc" ? ArrowDownWideNarrow : ArrowUpDown;
+  const sortLabel =
+    sortOrder === "asc"
+      ? "Orden ascendente por número"
+      : sortOrder === "desc"
+        ? "Orden descendente por número"
+        : "Ordenar por número";
 
   const totalKpi = counts[kpi] ?? 0;
 
@@ -324,6 +344,17 @@ export function ListaAnimales() {
             className="h-12 pl-11 text-base"
           />
         </div>
+        <Button
+          type="button"
+          variant={sortOrder === "default" ? "outline" : "default"}
+          size="icon"
+          onClick={cycleSort}
+          aria-label={sortLabel}
+          title={sortLabel}
+          className="h-12 w-12 p-0 shrink-0"
+        >
+          <SortIcon className="h-5 w-5" />
+        </Button>
         <Select value={sexo} onValueChange={(v) => setSexo(v as Sexo | "todos")}>
           <SelectTrigger className="h-12 w-full sm:w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
