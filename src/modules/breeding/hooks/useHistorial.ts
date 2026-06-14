@@ -8,8 +8,10 @@ import {
   type MarcarParidaInput,
   createBulkServicios,
   type BulkServicioInput,
+  listHistorialPendientes,
+  marcarServicioCompletado,
 } from "../repositories/historial.repository";
-import type { ServicioInput } from "../types/domain";
+import type { Historial, ServicioInput } from "../types/domain";
 
 export function useHistorial(animalId: string) {
   return useQuery({
@@ -75,6 +77,26 @@ export function useCreateBulkServicio() {
   const qc = useQueryClient();
   return useMutation<number, Error, { animalIds: string[]; input: BulkServicioInput }>({
     mutationFn: ({ animalIds, input }) => createBulkServicios(animalIds, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["historial"] });
+      qc.invalidateQueries({ queryKey: ["animals"] });
+      qc.invalidateQueries({ queryKey: ["animal-by-id"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useHistorialPendientes() {
+  return useQuery({
+    queryKey: ["historial", "pendientes"],
+    queryFn: () => listHistorialPendientes(),
+  });
+}
+
+export function useMarcarServicioCompletado() {
+  const qc = useQueryClient();
+  return useMutation<Historial, Error, string>({
+    mutationFn: (id) => marcarServicioCompletado(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["historial"] });
       qc.invalidateQueries({ queryKey: ["animals"] });
