@@ -115,6 +115,41 @@ export async function deleteHistorial(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function listHistorialPendientes(): Promise<Historial[]> {
+  const { data, error } = await supabase
+    .from("historial")
+    .select("*")
+    .eq("estado_servicio", "pendiente")
+    .order("fecha_palpado", { ascending: true, nullsFirst: false })
+    .order("fecha_monta", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Historial[];
+}
+
+/**
+ * Marca un servicio pendiente como "completado". Por defecto lo confirma como
+ * prenada (resultado positivo más común). El usuario puede editar el detalle
+ * desde el perfil del animal si el resultado fue distinto.
+ */
+export async function marcarServicioCompletado(id: string): Promise<Historial> {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("historial")
+    .update({
+      estado_servicio: "prenada",
+      fecha_confirmacion: hoy,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  const row = data as Historial;
+  if (row.animal_id) {
+    await syncEstadoAnimal(row.animal_id, "prenada");
+  }
+  return row;
+}
+
 export type BulkServicioInput = {
   tipo_servicio: "monta_natural" | "inseminacion";
   toro: string;
