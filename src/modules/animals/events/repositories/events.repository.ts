@@ -51,6 +51,24 @@ export async function listAllEvents(): Promise<AnimalEvent[]> {
   return (data ?? []) as unknown as AnimalEvent[];
 }
 
+export async function listProgramadosEvents(): Promise<AnimalEvent[]> {
+  const { data, error } = await supabase
+    .from("animal_events")
+    .select("*")
+    .eq("estado", "programado")
+    .order("fecha_ejecucion", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as unknown as AnimalEvent[];
+}
+
+export async function marcarEventoHecho(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("animal_events")
+    .update({ estado: "hecho", fecha_ejecucion: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function createBulkEvents<T extends AnimalEventType>(
   animalIds: string[],
   input: AnimalEventInput<T>,
