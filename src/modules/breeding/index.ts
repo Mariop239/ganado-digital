@@ -7,6 +7,8 @@ export {
   useDeleteHistorial,
   useMarcarParida,
   useCreateBulkServicio,
+  useHistorialPendientes,
+  useMarcarServicioCompletado,
 } from "./hooks/useHistorial";
 export { useNacimientosMes } from "./hooks/useNacimientosMes";
 export { useAlertasCrianza } from "./hooks/useAlertasCrianza";
