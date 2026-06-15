@@ -28,17 +28,17 @@ self.addEventListener("notificationclick", (event) => {
   const url = (event.notification.data && event.notification.data.url) || "/vacunas";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Si la app ya está abierta en el mismo origen, enfocarla sin
+      // forzar navegación (evita interrumpir formularios a medio llenar).
       for (const client of clientList) {
-        if ("focus" in client) {
-          try {
-            const u = new URL(client.url);
-            if (u.origin === self.location.origin) {
-              client.navigate(url);
-              return client.focus();
-            }
-          } catch {}
-        }
+        try {
+          const u = new URL(client.url);
+          if (u.origin === self.location.origin && "focus" in client) {
+            return client.focus();
+          }
+        } catch {}
       }
+      // Si no hay ventana abierta, abrir una nueva en la URL objetivo.
       if (self.clients.openWindow) return self.clients.openWindow(url);
     }),
   );
