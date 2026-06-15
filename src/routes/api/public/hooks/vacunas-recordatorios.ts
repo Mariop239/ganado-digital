@@ -48,13 +48,13 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
       POST: async ({ request }) => {
         // Autenticación con anon key (patrón canónico para cron)
         const apikey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_ANON_KEY;
+        const expected = import.meta.env.VITE_SUPABASE_ANON_KEY;
         if (!apikey || !expected || apikey !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const SUPABASE_URL = process.env.SUPABASE_URL!;
-        const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+        const SERVICE_ROLE = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string;
 
         const summary = {
           processed: 0,
