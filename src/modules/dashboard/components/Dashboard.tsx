@@ -48,6 +48,7 @@ import {
 } from "@/modules/vaccinations";
 import type { AlertaSanitaria, TipoTratamiento } from "@/modules/vaccinations";
 import { PushNotificationsBanner } from "@/modules/notifications";
+import { supabase } from "@/integrations/supabase/client";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", {
