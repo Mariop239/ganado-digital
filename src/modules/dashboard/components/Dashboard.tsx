@@ -402,6 +402,117 @@ function animalLabel(a: AlertaCrianza) {
   return `#${a.animal_numero}${a.animal_nombre ? ` — ${a.animal_nombre}` : ""}`;
 }
 
+function DebugNotificacionesCard() {
+  const [running, setRunning] = useState(false);
+
+  const runTest = async () => {
+    setRunning(true);
+    try {
+      // Paso A: permisos de notificación
+      if (!("Notification" in window)) {
+        toast.error("Este navegador no soporta notificaciones.");
+      } else if (Notification.permission === "granted") {
+        toast.success("Paso A: permiso de notificaciones concedido.");
+      } else if (Notification.permission === "denied") {
+        toast.error(
+          "Paso A: permiso de notificaciones denegado. Habilítalo en la configuración del navegador.",
+        );
+      } else {
+        const res = await Notification.requestPermission();
+        if (res === "granted") {
+          toast.success("Paso A: permiso concedido tras solicitud.");
+        } else {
+          toast.error(`Paso A: permiso no concedido (${res}).`);
+        }
+      }
+
+      // Paso B: Service Worker push-sw.js
+      if (!("serviceWorker" in navigator)) {
+        toast.error("Paso B: Service Worker no soportado en este navegador.");
+      } else {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const pushReg = regs.find((r) => {
+          const url =
+            r.active?.scriptURL ||
+            r.waiting?.scriptURL ||
+            r.installing?.scriptURL ||
+            "";
+          return url.includes("push-sw.js");
+        });
+        if (!pushReg) {
+          toast.error(
+            "Paso B: push-sw.js no está registrado. Activa las notificaciones desde el banner.",
+          );
+        } else if (!pushReg.active) {
+          toast.warning("Paso B: push-sw.js registrado pero aún no activo.");
+        } else {
+          toast.success("Paso B: push-sw.js registrado y activo.");
+        }
+      }
+
+      // Paso C: POST al hook
+      const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as
+        | string
+        | undefined;
+      if (!apikey) {
+        toast.error(
+          "Paso C: VITE_SUPABASE_ANON_KEY no está definida en el entorno.",
+        );
+        return;
+      }
+      try {
+        const resp = await fetch("/api/public/hooks/vacunas-recordatorios", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey,
+            Authorization: `Bearer ${apikey}`,
+          },
+          body: JSON.stringify({ test: true }),
+        });
+        const text = await resp.text();
+        if (!resp.ok) {
+          toast.error(
+            `Paso C: error ${resp.status} ${resp.statusText} — ${text.slice(0, 300)}`,
+            { duration: 10000 },
+          );
+        } else {
+          toast.success(
+            `Paso C: hook OK (${resp.status}) — ${text.slice(0, 200) || "sin cuerpo"}`,
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.error(`Paso C: fallo de red — ${msg}`, { duration: 10000 });
+      }
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
+        <div className="flex items-center gap-2">
+          <Bug className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Diagnóstico (temporal)
+          </CardTitle>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={runTest}
+          disabled={running}
+        >
+          {running ? "Ejecutando…" : "Ejecutar Test de Notificaciones"}
+        </Button>
+      </CardHeader>
+    </Card>
+  );
+}
+
 function AlertasCrianza({
   onRegistrarParto,
 }: {
