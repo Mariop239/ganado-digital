@@ -451,12 +451,16 @@ function DebugNotificacionesCard() {
       }
 
       // Paso C: POST al hook
-      const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY as
-        | string
-        | undefined;
+      // Obtenemos la anon/publishable key directamente desde el cliente
+      // centralizado de Supabase para no depender de VITE_SUPABASE_ANON_KEY
+      // (que en este entorno viene undefined).
+      const apikey =
+        ((supabase as unknown as { supabaseKey?: string }).supabaseKey) ||
+        (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+        (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined);
       if (!apikey) {
         toast.error(
-          "Paso C: VITE_SUPABASE_ANON_KEY no está definida en el entorno.",
+          "Paso C: no se pudo obtener la anon key desde el cliente de Supabase.",
         );
         return;
       }
