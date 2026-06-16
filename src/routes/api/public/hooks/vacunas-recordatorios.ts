@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabase } from "@/integrations/supabase/client";
 
 // Devuelve YYYY-MM-DD en zona horaria America/Guayaquil (UTC-5, sin DST).
 function ecuadorDate(offsetDays = 0): string {
@@ -46,15 +47,24 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Autenticación con anon key (patrón canónico para cron)
+        // Autenticación con la publishable/anon key.
+        // Fuente única de verdad: la clave configurada en el cliente Supabase
+        // (@/integrations/supabase/client). Así emisor (botón de diagnóstico)
+        // y receptor (esta API) comparten exactamente el mismo valor sin
+        // depender de variables sueltas que Cloudflare/Vite puedan omitir.
         const apikey = request.headers.get("apikey");
-        const expected = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const expected =
+          (supabase as unknown as { supabaseKey?: string }).supabaseKey ||
+          import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+          process.env.SUPABASE_PUBLISHABLE_KEY;
         if (!apikey || !expected || apikey !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-        const SERVICE_ROLE = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string;
+        const SUPABASE_URL =
+          (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+          (process.env.SUPABASE_URL as string);
+        const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 
         const summary = {
           processed: 0,
