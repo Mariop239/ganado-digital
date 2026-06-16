@@ -43,6 +43,30 @@ function buildMessage(
   }
 }
 
+function buildBatchMessage(
+  tipo: Offset,
+  vacuna: string,
+  count: number,
+): { title: string; body: string } {
+  switch (tipo) {
+    case "15d":
+      return {
+        title: "Alerta de Vacunación Grupal",
+        body: `En 15 días toca tratamiento de ${vacuna} para un lote de ${count} animales. Asegúrate de tener listos todos los materiales.`,
+      };
+    case "5d":
+      return {
+        title: "Recordatorio de Lote",
+        body: `En 5 días toca tratamiento de ${vacuna} para un lote de ${count} animales. Asegúrate de tener listos todos los materiales.`,
+      };
+    case "0d":
+      return {
+        title: "¡Hoy toca aplicar al lote!",
+        body: `Hoy toca tratamiento de ${vacuna} para un lote de ${count} animales. Asegúrate de tener listos todos los materiales.`,
+      };
+  }
+}
+
 export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")({
   server: {
     handlers: {
@@ -111,7 +135,7 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
           const { data: rows, error } = await supabaseAdmin
             .from("control_vacunas")
             .select(
-              "id, animal_id, user_id, vacuna_aplicada, fecha_proxima_dosis, estado_tratamiento, animals!inner(numero, nombre, estado_actual)",
+              "id, animal_id, user_id, vacuna_aplicada, fecha_proxima_dosis, estado_tratamiento, batch_id, animals!inner(numero, nombre, estado_actual)",
             )
             .eq("fecha_proxima_dosis", fechaObjetivo)
             .not("user_id", "is", null)
@@ -122,42 +146,100 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
             continue;
           }
 
-          for (const row of rows ?? []) {
-            summary.processed++;
-            const animalsRaw = (row as unknown as {
-              animals: { numero: string; nombre: string } | { numero: string; nombre: string }[];
-            }).animals;
-            const animals = Array.isArray(animalsRaw) ? animalsRaw[0] : animalsRaw;
-            const animalLabel = animals?.nombre?.trim()
-              ? `${animals.nombre} (#${animals.numero})`
-              : `#${animals?.numero ?? "?"}`;
+          // Agrupación inteligente por (user_id, batch_id, vacuna_aplicada).
+          // Filas con batch_id null se tratan como grupos individuales
+          // usando el propio id como clave única → notificación individual.
+          type Row = {
+            id: string;
+            animal_id: string;
+            user_id: string;
+            vacuna_aplicada: string;
+            batch_id: string | null;
+            animals:
+              | { numero: string; nombre: string }
+              | { numero: string; nombre: string }[];
+          };
+          const groups = new Map<string, Row[]>();
+          for (const r of (rows ?? []) as unknown as Row[]) {
+            const key = r.batch_id
+              ? `batch:${r.user_id}:${r.batch_id}:${r.vacuna_aplicada}`
+              : `single:${r.id}`;
+            const arr = groups.get(key) ?? [];
+            arr.push(r);
+            groups.set(key, arr);
+          }
 
-            // Idempotencia: registrar antes de enviar; si ya existe, saltar.
-            const { error: insErr } = await supabaseAdmin
-              .from("scheduled_notifications")
-              .insert({
-                user_id: row.user_id as string,
-                animal_id: row.animal_id as string,
-                vacuna_id: row.id,
-                tipo_alerta: tipo,
-                fecha_objetivo: fechaObjetivo,
-              });
+          for (const [, groupRows] of groups) {
+            summary.processed += groupRows.length;
+            const first = groupRows[0];
+            const isBatch = !!first.batch_id && groupRows.length > 1;
 
-            if (insErr) {
-              // 23505 = unique_violation → ya se envió este recordatorio
-              if (insErr.code === "23505") {
-                summary.skipped_duplicate++;
-                continue;
+            // Idempotencia: registrar todas las filas del grupo antes de enviar.
+            // Si TODAS están duplicadas → ya se notificó, saltar.
+            // Si alguna es nueva → enviar una sola notificación consolidada.
+            const insertedRowIds: string[] = [];
+            let insertError: string | null = null;
+            for (const r of groupRows) {
+              const { error: insErr } = await supabaseAdmin
+                .from("scheduled_notifications")
+                .insert({
+                  user_id: r.user_id,
+                  animal_id: r.animal_id,
+                  vacuna_id: r.id,
+                  tipo_alerta: tipo,
+                  fecha_objetivo: fechaObjetivo,
+                });
+              if (insErr) {
+                if (insErr.code === "23505") {
+                  summary.skipped_duplicate++;
+                  continue;
+                }
+                insertError = `insert ${tipo} ${r.id}: ${insErr.message}`;
+                break;
               }
-              summary.errors.push(`insert ${tipo} ${row.id}: ${insErr.message}`);
-              continue;
+              insertedRowIds.push(r.id);
             }
 
-            const { title, body } = buildMessage(
-              tipo,
-              row.vacuna_aplicada,
-              animalLabel,
-            );
+            if (insertError) {
+              summary.errors.push(insertError);
+              continue;
+            }
+            // Nada nuevo que notificar para este grupo.
+            if (insertedRowIds.length === 0) continue;
+
+            let title: string;
+            let body: string;
+            let pushData: Record<string, unknown>;
+            let tag: string;
+
+            if (isBatch) {
+              ({ title, body } = buildBatchMessage(
+                tipo,
+                first.vacuna_aplicada,
+                groupRows.length,
+              ));
+              // Colapsado en el dispositivo: una sola alerta viva por lote+tipo.
+              tag = `recordatorio.${first.batch_id}.${tipo}`;
+              pushData = {
+                batch_id: first.batch_id,
+                tipo_alerta: tipo,
+                count: groupRows.length,
+                vacuna_ids: groupRows.map((r) => r.id),
+              };
+            } else {
+              const animalsRaw = first.animals;
+              const animals = Array.isArray(animalsRaw) ? animalsRaw[0] : animalsRaw;
+              const animalLabel = animals?.nombre?.trim()
+                ? `${animals.nombre} (#${animals.numero})`
+                : `#${animals?.numero ?? "?"}`;
+              ({ title, body } = buildMessage(
+                tipo,
+                first.vacuna_aplicada,
+                animalLabel,
+              ));
+              tag = `recordatorio.${first.id}.${tipo}`;
+              pushData = { vacuna_id: first.id, tipo_alerta: tipo };
+            }
 
             try {
               const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
@@ -168,22 +250,25 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
                   apikey: SERVICE_ROLE,
                 },
                 body: JSON.stringify({
-                  user_id: row.user_id,
+                  user_id: first.user_id,
                   title,
                   body,
                   url: "/vacunas",
-                  data: { vacuna_id: row.id, tipo_alerta: tipo },
+                  tag,
+                  data: { ...pushData, tag },
                 }),
               });
 
               if (!res.ok) {
                 const txt = await res.text();
-                summary.errors.push(`send-push ${tipo} ${row.id}: ${res.status} ${txt}`);
-                // Revertir el registro de idempotencia para permitir reintento
+                summary.errors.push(
+                  `send-push ${tipo} ${isBatch ? `batch:${first.batch_id}` : first.id}: ${res.status} ${txt}`,
+                );
+                // Revertir SOLO los registros recién insertados para permitir reintento.
                 await supabaseAdmin
                   .from("scheduled_notifications")
                   .delete()
-                  .eq("vacuna_id", row.id)
+                  .in("vacuna_id", insertedRowIds)
                   .eq("tipo_alerta", tipo)
                   .eq("fecha_objetivo", fechaObjetivo);
                 continue;
@@ -192,12 +277,12 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
               summary.by_tipo[tipo]++;
             } catch (e) {
               summary.errors.push(
-                `send-push ${tipo} ${row.id}: ${(e as Error).message}`,
+                `send-push ${tipo} ${isBatch ? `batch:${first.batch_id}` : first.id}: ${(e as Error).message}`,
               );
               await supabaseAdmin
                 .from("scheduled_notifications")
                 .delete()
-                .eq("vacuna_id", row.id)
+                .in("vacuna_id", insertedRowIds)
                 .eq("tipo_alerta", tipo)
                 .eq("fecha_objetivo", fechaObjetivo);
             }
