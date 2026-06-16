@@ -124,7 +124,10 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
 
           for (const row of rows ?? []) {
             summary.processed++;
-            const animals = (row as { animals: { numero: string; nombre: string } }).animals;
+            const animalsRaw = (row as unknown as {
+              animals: { numero: string; nombre: string } | { numero: string; nombre: string }[];
+            }).animals;
+            const animals = Array.isArray(animalsRaw) ? animalsRaw[0] : animalsRaw;
             const animalLabel = animals?.nombre?.trim()
               ? `${animals.nombre} (#${animals.numero})`
               : `#${animals?.numero ?? "?"}`;
