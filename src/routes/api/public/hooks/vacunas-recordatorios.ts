@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 // Devuelve YYYY-MM-DD en zona horaria America/Guayaquil (UTC-5, sin DST).
 function ecuadorDate(offsetDays = 0): string {
@@ -64,16 +65,31 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
           );
         }
 
-        // Carga del admin client SOLO dentro del handler (server-only).
-        // Importarlo a nivel de módulo en un route file rompe el bundle.
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
-
+        // Lovable Cloud no permite el prefijo SUPABASE_ en secretos custom,
+        // así que la service role key vive bajo RANCHO_SERVICE_ROLE_KEY.
+        // Construimos el admin client inline para no depender de
+        // @/integrations/supabase/client.server (que lee SUPABASE_SERVICE_ROLE_KEY).
         const SUPABASE_URL =
           (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
           (process.env.SUPABASE_URL as string);
-        const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+        const SERVICE_ROLE =
+          (process.env.RANCHO_SERVICE_ROLE_KEY as string | undefined) ||
+          (process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined);
+
+        if (!SUPABASE_URL || !SERVICE_ROLE) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error:
+                "Server misconfigured: falta SUPABASE_URL o RANCHO_SERVICE_ROLE_KEY",
+            }),
+            { status: 500, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
 
         const summary = {
           processed: 0,
