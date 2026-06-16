@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { supabase } from "@/integrations/supabase/client";
 
 // Devuelve YYYY-MM-DD en zona horaria America/Guayaquil (UTC-5, sin DST).
@@ -47,6 +46,7 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
   server: {
     handlers: {
       POST: async ({ request }) => {
+        try {
         // Autenticación con la publishable/anon key.
         // Fuente única de verdad: la clave configurada en el cliente Supabase
         // (@/integrations/supabase/client). Así emisor (botón de diagnóstico)
@@ -58,8 +58,17 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
           import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
           process.env.SUPABASE_PUBLISHABLE_KEY;
         if (!apikey || !expected || apikey !== expected) {
-          return new Response("Unauthorized", { status: 401 });
+          return new Response(
+            JSON.stringify({ ok: false, error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          );
         }
+
+        // Carga del admin client SOLO dentro del handler (server-only).
+        // Importarlo a nivel de módulo en un route file rompe el bundle.
+        const { supabaseAdmin } = await import(
+          "@/integrations/supabase/client.server"
+        );
 
         const SUPABASE_URL =
           (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
@@ -181,6 +190,16 @@ export const Route = createFileRoute("/api/public/hooks/vacunas-recordatorios")(
           ran_at_ecuador: ecuadorDate(0),
           ...summary,
         });
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+            }),
+            { status: 500, headers: { "Content-Type": "application/json" } },
+          );
+        }
       },
     },
   },
