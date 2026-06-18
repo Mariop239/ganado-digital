@@ -447,6 +447,7 @@ export function FormControlSanitarioGrupal({
                 onChange={field.onChange}
                 placeholder="Sin programar"
                 disablePast
+                toYear={new Date().getFullYear() + 5}
               />
             )}
           />
