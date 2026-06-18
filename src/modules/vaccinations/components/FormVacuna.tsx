@@ -197,6 +197,7 @@ export function FormVacuna({ animalId, alertaId, alertaEstado, prefill, editId, 
                 onChange={field.onChange}
                 placeholder="Sin programar"
                 disablePast
+                toYear={new Date().getFullYear() + 5}
               />
             )}
           />
