@@ -19,6 +19,10 @@ type Props = {
   disableFuture?: boolean;
   /** Restringe la selección a fechas futuras (incluye hoy). */
   disablePast?: boolean;
+  /** Año inicial para el dropdown de años. */
+  fromYear?: number;
+  /** Año final para el dropdown de años. */
+  toYear?: number;
   className?: string;
   id?: string;
 };
@@ -36,6 +40,8 @@ export function DatePicker({
   clearable = true,
   disableFuture,
   disablePast,
+  fromYear,
+  toYear,
   className,
   id,
 }: Props) {
@@ -81,6 +87,8 @@ export function DatePicker({
             initialFocus
             locale={es}
             captionLayout="dropdown"
+            fromYear={fromYear}
+            toYear={toYear}
             className={cn("p-3 pointer-events-auto")}
           />
         </PopoverContent>
